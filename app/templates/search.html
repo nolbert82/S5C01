@@ -1,0 +1,308 @@
+{% extends "base.html" %}
+
+{% block title %}Recherche - Moteur de Séries TV{% endblock %}
+
+{% block content %}
+<div class="fade-in">
+    <div class="card">
+        <div class="card-header">
+            <h1 class="card-title">
+                <i class="fas fa-search"></i> Recherche de Séries
+            </h1>
+        </div>
+        
+        <form id="search-form">
+            <div class="form-group">
+                <label for="search-input" class="form-label">Mots-clés de recherche</label>
+                <input 
+                    type="text" 
+                    id="search-input" 
+                    name="q" 
+                    class="form-input" 
+                    placeholder="Tapez vos mots-clés (ex: crash avion île, meth chemistry, etc.)" 
+                    value="{{ query or '' }}"
+                    autocomplete="off"
+                >
+            </div>
+            <button type="submit" class="btn">
+                <i class="fas fa-search"></i> Rechercher
+            </button>
+        </form>
+        
+        <div id="loading-spinner" class="spinner hidden"></div>
+    </div>
+
+    <!-- Résultats de recherche -->
+    <div id="search-results-container" class="hidden">
+        <div class="card">
+            <div class="card-header">
+                <h2 class="card-title">
+                    <i class="fas fa-list"></i> Résultats de recherche
+                </h2>
+            </div>
+            
+            <div id="search-results">
+                <!-- Les résultats seront chargés ici via JavaScript -->
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<!-- Modal de notation -->
+<div id="rating-modal" class="modal hidden">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Noter la série</h3>
+            <span class="close" onclick="closeRatingModal()">&times;</span>
+        </div>
+        <div class="modal-body">
+            <p>Donnez une note à <strong id="serie-name"></strong> :</p>
+            <div class="star-rating" id="rating-stars">
+                <span class="star" data-rating="1">★</span>
+                <span class="star" data-rating="2">★</span>
+                <span class="star" data-rating="3">★</span>
+                <span class="star" data-rating="4">★</span>
+                <span class="star" data-rating="5">★</span>
+            </div>
+            <input type="hidden" id="rating-value" value="0">
+            <input type="hidden" id="serie-id" value="">
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeRatingModal()">Annuler</button>
+            <button class="btn" onclick="submitRating()">Enregistrer</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Fonction pour effectuer une recherche via l'API
+function performSearch(query) {
+    const searchResults = document.getElementById('search-results');
+    const loadingSpinner = document.getElementById('loading-spinner');
+    const resultsContainer = document.getElementById('search-results-container');
+    
+    if (!query.trim()) {
+        resultsContainer.classList.add('hidden');
+        return;
+    }
+    
+    // Show loading spinner
+    loadingSpinner.classList.remove('hidden');
+    resultsContainer.classList.remove('hidden');
+    
+    fetch(`/api/search?q=${encodeURIComponent(query)}`)
+        .then(response => response.json())
+        .then(data => {
+            displaySearchResults(data, query);
+        })
+        .catch(error => {
+            console.error('Erreur de recherche:', error);
+            showFlashMessage('Erreur lors de la recherche', 'error');
+        })
+        .finally(() => {
+            loadingSpinner.classList.add('hidden');
+        });
+}
+
+// Afficher les résultats de recherche
+function displaySearchResults(results, query) {
+    const searchResults = document.getElementById('search-results');
+    const resultsContainer = document.getElementById('search-results-container');
+    
+    if (results.length === 0) {
+        searchResults.innerHTML = `
+            <p class="text-center text-muted">
+                <i class="fas fa-search"></i> Aucun résultat trouvé pour "${query}"
+            </p>
+        `;
+        return;
+    }
+    
+    const resultsHTML = results.map(result => `
+        <div class="result-item fade-in">
+            <h3 class="result-title">${result[0]}</h3>
+            <p class="result-score">
+                <i class="fas fa-percentage"></i> 
+                Score de pertinence: ${(result[1] * 100).toFixed(1)}%
+            </p>
+            <p class="result-description">
+                Série trouvée correspondant à votre recherche.
+                {% if current_user.is_authenticated %}
+                    <a href="#" onclick="rateSerie('${result[0]}')" class="text-primary">
+                        <i class="fas fa-star"></i> Noter cette série
+                    </a>
+                {% endif %}
+            </p>
+        </div>
+    `).join('');
+    
+    searchResults.innerHTML = resultsHTML;
+}
+
+// Fonction pour rechercher avec un query spécifique
+function searchQuery(query) {
+    document.getElementById('search-input').value = query;
+    performSearch(query);
+}
+
+// Gestion du formulaire de recherche
+document.addEventListener('DOMContentLoaded', function() {
+    // S'assurer que la modal est cachée au chargement
+    const ratingModal = document.getElementById('rating-modal');
+    if (ratingModal) {
+        ratingModal.classList.add('hidden');
+    }
+    
+    const searchForm = document.getElementById('search-form');
+    const searchInput = document.getElementById('search-input');
+    
+    // Gestion de la soumission du formulaire
+    searchForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        const query = searchInput.value.trim();
+        performSearch(query);
+    });
+    
+    // Recherche automatique si il y a déjà une query dans l'URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const initialQuery = urlParams.get('q');
+    if (initialQuery) {
+        searchInput.value = initialQuery;
+        performSearch(initialQuery);
+    }
+    
+    // Setup star rating for modal
+    const stars = document.querySelectorAll('#rating-stars .star');
+    const ratingInput = document.getElementById('rating-value');
+    
+    stars.forEach((star, index) => {
+        star.addEventListener('click', () => {
+            const rating = index + 1;
+            ratingInput.value = rating;
+            
+            stars.forEach((s, i) => {
+                if (i < rating) {
+                    s.classList.add('active');
+                } else {
+                    s.classList.remove('active');
+                }
+            });
+        });
+    });
+});
+
+function rateSerie(serieName) {
+    document.getElementById('serie-name').textContent = serieName;
+    document.getElementById('rating-modal').classList.remove('hidden');
+}
+
+function closeRatingModal() {
+    document.getElementById('rating-modal').classList.add('hidden');
+    document.getElementById('rating-value').value = '0';
+    // Reset stars
+    document.querySelectorAll('#rating-stars .star').forEach(star => {
+        star.classList.remove('active');
+    });
+}
+
+function submitRating() {
+    const rating = document.getElementById('rating-value').value;
+    const serieName = document.getElementById('serie-name').textContent;
+    
+    if (rating === '0') {
+        alert('Veuillez sélectionner une note');
+        return;
+    }
+    
+    // Ici vous pouvez ajouter une requête AJAX pour sauvegarder la note
+    fetch('/api/rate', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            serie_name: serieName,
+            rating: parseInt(rating)
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showFlashMessage('Note enregistrée avec succès !', 'success');
+            closeRatingModal();
+        } else {
+            showFlashMessage('Erreur lors de l\'enregistrement de la note', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Erreur:', error);
+        showFlashMessage('Erreur lors de l\'enregistrement de la note', 'error');
+    });
+}
+</script>
+
+<style>
+.modal {
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.modal.hidden {
+    display: none !important;
+}
+
+.modal-content {
+    background-color: var(--secondary-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 2rem;
+    max-width: 500px;
+    width: 90%;
+    box-shadow: var(--shadow-hover);
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 1rem;
+}
+
+.modal-header h3 {
+    margin: 0;
+    color: var(--text-primary);
+}
+
+.close {
+    color: var(--text-muted);
+    font-size: 28px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: color 0.3s ease;
+}
+
+.close:hover {
+    color: var(--text-primary);
+}
+
+.modal-footer {
+    margin-top: 1.5rem;
+    display: flex;
+    gap: 1rem;
+    justify-content: flex-end;
+}
+</style>
+{% endblock %}

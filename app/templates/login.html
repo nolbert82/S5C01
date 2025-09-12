@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+
+{% block title %}Connexion - Moteur de Séries TV{% endblock %}
+
+{% block content %}
+<div class="fade-in">
+    <div class="card" style="max-width: 400px; margin: 0 auto;">
+        <div class="card-header">
+            <h1 class="card-title">
+                <i class="fas fa-sign-in-alt"></i> Connexion
+            </h1>
+        </div>
+        
+        <form method="POST" action="{{ url_for('login') }}" data-validate>
+            <div class="form-group">
+                <label for="username" class="form-label">Nom d'utilisateur</label>
+                <input 
+                    type="text" 
+                    id="username" 
+                    name="username" 
+                    class="form-input" 
+                    placeholder="Votre nom d'utilisateur"
+                    required
+                    autocomplete="username"
+                >
+            </div>
+            
+            <div class="form-group">
+                <label for="password" class="form-label">Mot de passe</label>
+                <input 
+                    type="password" 
+                    id="password" 
+                    name="password" 
+                    class="form-input" 
+                    placeholder="Votre mot de passe"
+                    required
+                    autocomplete="current-password"
+                >
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">
+                    <input type="checkbox" name="remember_me" style="margin-right: 0.5rem;">
+                    Se souvenir de moi
+                </label>
+            </div>
+            
+            <button type="submit" class="btn" style="width: 100%;">
+                <i class="fas fa-sign-in-alt"></i> Se connecter
+            </button>
+        </form>
+        
+        <div class="text-center mt-3">
+            <p class="text-secondary">
+                Pas encore de compte ? 
+                <a href="{{ url_for('register') }}" class="text-primary">
+                    <i class="fas fa-user-plus"></i> S'inscrire
+                </a>
+            </p>
+        </div>
+    </div>
+    
+    <!-- Informations sur les comptes de test -->
+    <div class="card" style="max-width: 400px; margin: 2rem auto 0;">
+        <div class="card-header">
+            <h2 class="card-title">
+                <i class="fas fa-info-circle"></i> Comptes de test
+            </h2>
+        </div>
+        <p class="text-secondary">
+            Pour tester l'application, vous pouvez utiliser ces comptes :
+        </p>
+        <ul class="text-secondary">
+            <li><strong>Admin:</strong> admin / admin123</li>
+            <li><strong>Utilisateur:</strong> user / user123</li>
+        </ul>
+    </div>
+</div>
+{% endblock %}

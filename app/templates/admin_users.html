@@ -1,0 +1,165 @@
+{% extends "base.html" %}
+
+{% block title %}Gestion des Utilisateurs - Moteur de Séries TV{% endblock %}
+
+{% block content %}
+<div class="fade-in">
+    <div class="card">
+        <div class="card-header">
+            <h1 class="card-title">
+                <i class="fas fa-users-cog"></i> Gestion des Utilisateurs
+            </h1>
+        </div>
+        <p class="text-secondary">
+            Gérez les utilisateurs de la plateforme. Vous pouvez promouvoir des utilisateurs en administrateurs 
+            ou supprimer des comptes si nécessaire.
+        </p>
+    </div>
+
+    <!-- Statistiques -->
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title">
+                <i class="fas fa-chart-bar"></i> Statistiques
+            </h2>
+        </div>
+        <div class="grid grid-3">
+            <div class="text-center">
+                <h3 class="text-primary">{{ users|length }}</h3>
+                <p class="text-secondary">Utilisateurs total</p>
+            </div>
+            <div class="text-center">
+                <h3 class="text-primary">{{ users|selectattr('is_admin')|list|length }}</h3>
+                <p class="text-secondary">Administrateurs</p>
+            </div>
+            <div class="text-center">
+                <h3 class="text-primary">{{ users|rejectattr('is_admin')|list|length }}</h3>
+                <p class="text-secondary">Utilisateurs normaux</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Liste des utilisateurs -->
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title">
+                <i class="fas fa-list"></i> Liste des Utilisateurs
+            </h2>
+        </div>
+        
+        {% if users %}
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Nom d'utilisateur</th>
+                            <th>Email</th>
+                            <th>Rôle</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for user in users %}
+                            <tr>
+                                <td>{{ user.id }}</td>
+                                <td>
+                                    <strong>{{ user.username }}</strong>
+                                    {% if user.id == current_user.id %}
+                                        <span class="text-primary">(Vous)</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ user.email }}</td>
+                                <td>
+                                    {% if user.is_admin %}
+                                        <span class="badge badge-success">
+                                            <i class="fas fa-crown"></i> Administrateur
+                                        </span>
+                                    {% else %}
+                                        <span class="badge badge-secondary">
+                                            <i class="fas fa-user"></i> Utilisateur
+                                        </span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div class="action-buttons">
+                                        {% if user.id != current_user.id %}
+                                            {% if user.is_admin %}
+                                                <form method="POST" action="{{ url_for('admin_demote_user', user_id=user.id) }}" style="display: inline;">
+                                                    <button type="submit" class="btn btn-small btn-secondary" 
+                                                            onclick="return confirm('Êtes-vous sûr de vouloir retirer les droits d\'administrateur à {{ user.username }} ?')">
+                                                        <i class="fas fa-user-minus"></i> Rétrograder
+                                                    </button>
+                                                </form>
+                                            {% else %}
+                                                <form method="POST" action="{{ url_for('admin_promote_user', user_id=user.id) }}" style="display: inline;">
+                                                    <button type="submit" class="btn btn-small btn-success" 
+                                                            onclick="return confirm('Êtes-vous sûr de vouloir promouvoir {{ user.username }} en administrateur ?')">
+                                                        <i class="fas fa-user-plus"></i> Promouvoir
+                                                    </button>
+                                                </form>
+                                            {% endif %}
+                                            
+                                            <form method="POST" action="{{ url_for('admin_delete_user', user_id=user.id) }}" style="display: inline;">
+                                                <button type="submit" class="btn btn-small btn-danger" 
+                                                        onclick="return confirm('Êtes-vous sûr de vouloir supprimer l\'utilisateur {{ user.username }} ? Cette action est irréversible.')">
+                                                    <i class="fas fa-trash"></i> Supprimer
+                                                </button>
+                                            </form>
+                                        {% else %}
+                                            <span class="text-muted">Actions non disponibles</span>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="text-center">
+                <i class="fas fa-users" style="font-size: 3rem; color: var(--text-muted); margin-bottom: 1rem;"></i>
+                <h3 class="text-muted">Aucun utilisateur trouvé</h3>
+                <p class="text-secondary">Il n'y a pas encore d'utilisateurs dans le système.</p>
+            </div>
+        {% endif %}
+    </div>
+
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+</script>
+
+<style>
+.table-responsive {
+    overflow-x: auto;
+}
+
+.action-buttons {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.badge {
+    display: inline-block;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+
+.badge-success {
+    background-color: var(--success-color);
+    color: white;
+}
+
+.badge-secondary {
+    background-color: var(--text-muted);
+    color: var(--text-primary);
+}
+</style>
+{% endblock %}

@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+
+{% block title %}Recommandations - Moteur de Séries TV{% endblock %}
+
+{% block content %}
+<div class="fade-in">
+  <div class="card">
+    <div class="card-header">
+      <h1 class="card-title">
+        <i class="fas fa-star"></i> Recommandations
+      </h1>
+    </div>
+    <form id="search-form">
+      <div class="form-group">
+        <label for="search-input" class="form-label">Mots-clés de recherche</label>
+        <input
+          type="text"
+          id="search-input"
+          name="q"
+          class="form-input"
+          placeholder="Tapez vos mots-clés (ex: mystère, médecins, etc.)"
+          autocomplete="off"
+        >
+      </div>
+      <button type="submit" class="btn">
+        <i class="fas fa-search"></i> Rechercher
+      </button>
+    </form>
+    <div id="loading-spinner" class="spinner hidden"></div>
+  </div>
+
+  <div id="results-container" class="hidden">
+    <div class="card">
+      <div class="card-header">
+        <h2 class="card-title"><i class="fas fa-list"></i> Résultats</h2>
+      </div>
+      <div id="search-results"></div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function performSearch(query){
+  const resultsContainer = document.getElementById('results-container');
+  const spinner = document.getElementById('loading-spinner');
+  const results = document.getElementById('search-results');
+  const hasQuery = !!query.trim();
+  if (!hasQuery && !window.CURRENT_USER_ID){ resultsContainer.classList.add('hidden'); return; }
+  spinner.classList.remove('hidden');
+  resultsContainer.classList.remove('hidden');
+  try {
+    const params = new URLSearchParams();
+    if (hasQuery) params.set('q', query);
+    if (window.CURRENT_USER_ID) params.set('user_id', String(window.CURRENT_USER_ID));
+    const resp = await fetch(`/api/search?${params.toString()}`);
+    const data = await resp.json();
+    if (!Array.isArray(data) || data.length === 0){
+      results.innerHTML = '<p class="text-center text-muted">Aucun résultat.</p>';
+    } else {
+      results.innerHTML = data.map(([name, score])=>`<div class="result-item"><h3 class="result-title">${name}</h3><p class="result-score">Score: ${(score*100).toFixed(1)}%</p></div>`).join('');
+    }
+  } catch(e){
+    console.error(e);
+    showFlashMessage('Erreur lors de la recherche', 'error');
+  } finally {
+    spinner.classList.add('hidden');
+  }
+}
+
+document.addEventListener('DOMContentLoaded', async () => {
+  const form = document.getElementById('search-form');
+  const input = document.getElementById('search-input');
+  form.addEventListener('submit', (e)=>{ e.preventDefault(); performSearch(input.value); });
+
+  const urlParams = new URLSearchParams(window.location.search);
+  const initialQuery = urlParams.get('q');
+  if (initialQuery){ input.value = initialQuery; performSearch(initialQuery); }
+  else if (window.CURRENT_USER_ID){ performSearch(''); }
+});
+</script>
+{% endblock %}

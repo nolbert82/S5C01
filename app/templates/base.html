@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Moteur de Séries TV{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="{{ url_for('search_page') }}" class="nav-brand">
+                <i class="fas fa-tv"></i> Moteur de Séries
+            </a>
+            <ul class="nav-links">
+                <li><a href="{{ url_for('search_page') }}" class="{% if request.endpoint == 'search_page' %}active{% endif %}">
+                    <i class="fas fa-search"></i> Recherche
+                </a></li>
+                <li><a href="{{ url_for('recommendations_page') }}" class="{% if request.endpoint == 'recommendations_page' %}active{% endif %}">
+                    <i class="fas fa-star"></i> Recommandations
+                </a></li>
+                
+                {% if current_user.is_authenticated %}
+                    {% if current_user.is_admin %}
+                        <li><a href="{{ url_for('admin_users') }}" class="{% if request.endpoint == 'admin_users' %}active{% endif %}">
+                            <i class="fas fa-users-cog"></i> Gestion Utilisateurs
+                        </a></li>
+                    {% endif %}
+                    <li><a href="{{ url_for('logout') }}">
+                        <i class="fas fa-sign-out-alt"></i> Déconnexion ({{ current_user.username }})
+                    </a></li>
+                {% else %}
+                    <li><a href="{{ url_for('login') }}" class="{% if request.endpoint == 'login' %}active{% endif %}">
+                        <i class="fas fa-sign-in-alt"></i> Connexion
+                    </a></li>
+                    <li><a href="{{ url_for('register') }}" class="{% if request.endpoint == 'register' %}active{% endif %}">
+                        <i class="fas fa-user-plus"></i> Inscription
+                    </a></li>
+                {% endif %}
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Messages flash -->
+    <div id="flash-messages" class="flash-messages">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="flash-message flash-{{ category }}">
+                        <i class="fas fa-{% if category == 'success' %}check-circle{% elif category == 'error' %}exclamation-circle{% else %}info-circle{% endif %}"></i>
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+    </div>
+
+    <!-- Contenu principal -->
+    <main class="container">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Global user context for JS -->
+    <script>
+        window.CURRENT_USER_ID = {% if current_user.is_authenticated %}{{ current_user.id }}{% else %}null{% endif %};
+    </script>
+    <!-- Scripts -->
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>
