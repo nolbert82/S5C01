@@ -1,14 +1,12 @@
 ﻿from flask import Flask, request, jsonify, render_template, redirect, url_for, flash
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from flask_cors import CORS
-from app.models import db, Serie, User, Rating, SeriesTerm
+from app.models import db, Serie, User, Rating
 from app.search import SearchEngine
 import os
 
 app = Flask(__name__)
-# Ensure instance folder exists and store DB there
-os.makedirs(app.instance_path, exist_ok=True)
-app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///" + os.path.join(app.instance_path, "series.db")
+app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///series.db"
 app.config["SECRET_KEY"] = "CLESECRETE"
 
 # Configuration CORS pour permettre l'accès à l'API depuis l'extérieur
@@ -33,31 +31,41 @@ db.init_app(app)
 def load_user(user_id):
     return User.query.get(int(user_id))
 
+# --- Initialisation du moteur de recherche ---
+# Exemple fictif : normalement tu charges depuis tes sous-titres nettoyés
+series_texts = {
+    "Lost": "plane crash island survival mystery",
+    "Breaking Bad": "meth chemistry teacher cartel drugs",
+    "Dark": "time travel mystery family secrets",
+    "Stranger Things": "kids supernatural monsters government",
+    "The Office": "workplace comedy office humor",
+    "Friends": "friendship comedy relationships",
+    "Game of Thrones": "fantasy dragons medieval politics",
+    "The Walking Dead": "zombies survival apocalypse",
+    "House": "medical doctor diagnosis mystery",
+    "Sherlock": "detective mystery crime london"
+}
 search_engine = None
 
-# Build TF-IDF strictly from DB (SeriesTerm) if available
-def _load_series_counts_from_db():
-    counts_by_series = {}
-    try:
-        rows = (
-            db.session.query(Serie.name, SeriesTerm.term, SeriesTerm.count)
-            .join(SeriesTerm, SeriesTerm.serie_id == Serie.id)
-            .all()
-        )
-        for name, term, count in rows:
-            d = counts_by_series.setdefault(name, {})
-            d[str(term)] = float(count)
-    except Exception:
-        counts_by_series = {}
-    return counts_by_series
-
-def _build_search_engine_from_db():
-    sc = _load_series_counts_from_db()
-    if sc:
-        return SearchEngine(sc)
-    return None
-
- 
+# Remplace le moteur de recherche par un moteur TF-IDF construit
+# depuis les fichiers de fréquences s'ils sont présents.
+DATA_FREQ_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data_word_frequency")
+_series_counts = SearchEngine.load_series_counts_from_dir(DATA_FREQ_DIR)
+if _series_counts:
+    search_engine = SearchEngine(_series_counts)
+else:
+    # Fallback: build simple counts from example strings
+    fallback_counts = {}
+    for name, text in series_texts.items():
+        counts = {}
+        for token in text.split():
+            token = token.strip().lower()
+            if not token:
+                continue
+            counts[token] = counts.get(token, 0) + 1
+        if counts:
+            fallback_counts[name] = counts
+    search_engine = SearchEngine(fallback_counts)
 
 def populate_series_in_db(series_names):
     """Ajoute les séries dans la base si elles n'existent pas encore."""
@@ -79,14 +87,6 @@ def api_search():
     Retour: liste de paires [serie_name, score]
     """
     query = (request.args.get("q") or "").strip()
-    # Ensure engine is initialized from DB
-    global search_engine
-    if search_engine is None:
-        search_engine = _build_search_engine_from_db()
-        if search_engine is None:
-            return jsonify([])
-    if search_engine is None:
-        return jsonify([])
     try:
         top_n = int(request.args.get("top_n", 10))
     except (TypeError, ValueError):

@@ -30,3 +30,12 @@ class Rating(db.Model):
     serie_id = db.Column(db.Integer, db.ForeignKey("serie.id"), nullable=False)
     score = db.Column(db.Integer, nullable=False)  # entre 1 et 5
     __table_args__ = (db.UniqueConstraint('user_id', 'serie_id', name='unique_user_serie_rating'),)
+
+class SeriesTerm(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    serie_id = db.Column(db.Integer, db.ForeignKey("serie.id"), nullable=False, index=True)
+    term = db.Column(db.String, nullable=False, index=True)
+    count = db.Column(db.Float, nullable=False, default=0)
+    __table_args__ = (
+        db.UniqueConstraint('serie_id', 'term', name='unique_serie_term'),
+    )
