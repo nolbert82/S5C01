@@ -55,7 +55,8 @@ function performSearch(query) {
     const searchResults = document.getElementById('search-results');
     const loadingSpinner = document.getElementById('loading-spinner');
     
-    fetch(`/search?q=${encodeURIComponent(query)}`)
+    // Use API endpoint that returns JSON search results
+    fetch(`/api/search?q=${encodeURIComponent(query)}`)
         .then(response => response.json())
         .then(data => {
             displaySearchResults(data);

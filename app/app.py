@@ -32,40 +32,14 @@ def load_user(user_id):
     return User.query.get(int(user_id))
 
 # --- Initialisation du moteur de recherche ---
-# Exemple fictif : normalement tu charges depuis tes sous-titres nettoyés
-series_texts = {
-    "Lost": "plane crash island survival mystery",
-    "Breaking Bad": "meth chemistry teacher cartel drugs",
-    "Dark": "time travel mystery family secrets",
-    "Stranger Things": "kids supernatural monsters government",
-    "The Office": "workplace comedy office humor",
-    "Friends": "friendship comedy relationships",
-    "Game of Thrones": "fantasy dragons medieval politics",
-    "The Walking Dead": "zombies survival apocalypse",
-    "House": "medical doctor diagnosis mystery",
-    "Sherlock": "detective mystery crime london"
-}
-search_engine = None
-
-# Remplace le moteur de recherche par un moteur TF-IDF construit
-# depuis les fichiers de fréquences s'ils sont présents.
-DATA_FREQ_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data_word_frequency")
-_series_counts = SearchEngine.load_series_counts_from_dir(DATA_FREQ_DIR)
-if _series_counts:
-    search_engine = SearchEngine(_series_counts)
-else:
-    # Fallback: build simple counts from example strings
-    fallback_counts = {}
-    for name, text in series_texts.items():
-        counts = {}
-        for token in text.split():
-            token = token.strip().lower()
-            if not token:
-                continue
-            counts[token] = counts.get(token, 0) + 1
-        if counts:
-            fallback_counts[name] = counts
-    search_engine = SearchEngine(fallback_counts)
+# Construit le moteur TF-IDF uniquement depuis la base de données.
+try:
+    with app.app_context():
+        _series_counts = SearchEngine.load_series_counts_from_db()
+        search_engine = SearchEngine(_series_counts)
+except Exception:
+    # Initialise un moteur vide si la base n'est pas prête
+    search_engine = SearchEngine({})
 
 def populate_series_in_db(series_names):
     """Ajoute les séries dans la base si elles n'existent pas encore."""
@@ -436,7 +410,7 @@ def create_admin_user():
 if __name__ == "__main__":
     with app.app_context():
         db.create_all()
-        # Populate DB with series from data_word_frequency if available
+        # Optionnel: s'assurer que les séries de l'index existent côté DB
         try:
             populate_series_in_db(getattr(search_engine, 'series_names', []))
         except Exception:

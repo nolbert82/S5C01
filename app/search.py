@@ -11,6 +11,14 @@ from sklearn.feature_extraction import DictVectorizer
 from sklearn.feature_extraction.text import TfidfTransformer
 from sklearn.preprocessing import normalize
 
+# DB models (for DB-backed loading)
+try:
+    from app.models import db, Serie, SeriesTerm  # type: ignore
+except Exception:
+    # Allow importing this module in contexts without app/models readiness
+    db = None
+    Serie = None
+    SeriesTerm = None
 
 class SearchEngine:
     """
@@ -30,6 +38,13 @@ class SearchEngine:
         # Vectorize counts with a fixed vocabulary using DictVectorizer
         self._dv = DictVectorizer()
         counts_list = [series_counts[name] for name in self.series_names]
+        if len(counts_list) == 0:
+            # Initialize empty, no features, no rows
+            self._dv.fit([{}])  # create empty vocabulary safely
+            self._tfidf = TfidfTransformer(norm="l2", use_idf=True, smooth_idf=True)
+            self._X = csr_matrix((0, 0))
+            return
+
         X_counts = self._dv.fit_transform(counts_list)
 
         # TF-IDF transform
@@ -81,6 +96,43 @@ class SearchEngine:
 
         return series_counts
 
+    @staticmethod
+    def load_series_counts_from_db() -> Dict[str, Dict[str, float]]:
+        """
+        Load per-series word counts from the database (tables: Serie, SeriesTerm).
+        Returns a mapping: { series_name: { term: count } }.
+        """
+        series_counts: Dict[str, Dict[str, float]] = {}
+        # Ensure DB models are available
+        if db is None or Serie is None or SeriesTerm is None:
+            return series_counts
+
+        try:
+            q = (
+                db.session.query(Serie.name, SeriesTerm.term, SeriesTerm.count)
+                .join(SeriesTerm, SeriesTerm.serie_id == Serie.id)
+                .filter(SeriesTerm.count > 0)
+            )
+            for s_name, term, count in q:
+                if not s_name:
+                    continue
+                term_norm = SearchEngine._normalize_text(term or "")
+                if not term_norm:
+                    continue
+                try:
+                    c = float(count)
+                except (TypeError, ValueError):
+                    continue
+                if c <= 0:
+                    continue
+                d = series_counts.setdefault(str(s_name), {})
+                d[term_norm] = d.get(term_norm, 0.0) + c
+        except Exception:
+            # In case tables do not exist yet or DB not ready
+            return {}
+
+        return series_counts
+
     # ----------------------
     # Vectorization helpers
     # ----------------------
@@ -103,6 +155,9 @@ class SearchEngine:
         return counts
 
     def vectorize_query(self, query: str) -> csr_matrix:
+        # If no features, return empty vector
+        if self._X.shape[1] == 0:
+            return csr_matrix((1, 0))
         counts = self._query_to_counts(query)
         if not counts:
             return csr_matrix((1, self._X.shape[1]))
@@ -163,6 +218,10 @@ class SearchEngine:
         - Can exclude a set of series names from results (e.g., already rated).
         Returns: list of (series_name, score) sorted by score desc.
         """
+        # If the index is empty (no series or no vocabulary), nothing to return
+        if self._X.shape[0] == 0 or self._X.shape[1] == 0:
+            return []
+
         exclude_set = set(exclude_names or [])
 
         parts: List[csr_matrix] = []
@@ -183,6 +242,9 @@ class SearchEngine:
         combined = None
         for p, w in zip(parts, weights):
             combined = p.multiply(w) if combined is None else combined + p.multiply(w)
+        # Handle potential empty vector (e.g., query has no known tokens)
+        if combined.shape[1] == 0:
+            return []
         combined = normalize(combined, norm="l2")
 
         sims = (combined @ self._X.T).toarray().ravel()  # cosine similarities
