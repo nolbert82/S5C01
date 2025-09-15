@@ -1,13 +1,13 @@
 ﻿from flask import Flask, request, jsonify, render_template, redirect, url_for, flash
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from flask_cors import CORS
-from models import db, Serie, User, Rating
-from search import SearchEngine
+from app.models import db, Serie, User, Rating
+from app.search import SearchEngine
 import os
 
 app = Flask(__name__)
 app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///series.db"
-app.config["SECRET_KEY"] = "votre-cle-secrete-changez-cela-en-production"
+app.config["SECRET_KEY"] = "CLESECRETE"
 
 # Configuration CORS pour permettre l'accès à l'API depuis l'extérieur
 CORS(app, resources={
