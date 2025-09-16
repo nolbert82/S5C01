@@ -322,9 +322,13 @@ body {
     transition: color 0.2s ease;
 }
 
-.star:hover,
-.star.active {
-    color: #ffff00;
+.star.active,
+.fa-star.star.fas {
+    color: #ffd700;
+}
+
+.star:hover {
+    color: #ffd700;
 }
 
 /* Responsive */

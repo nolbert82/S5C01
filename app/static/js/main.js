@@ -381,21 +381,26 @@ function isValidEmail(email) {
     const setStars = (selected) => {
       stars.forEach((el, idx)=> {
         const n = idx + 1;
-        el.className = (n === selected ? 'fas' : 'far') + ' fa-star star';
-        el.style.color = (n === selected ? '#ffd700' : 'var(--text-muted)');
+        // Fill all stars up to selected
+        el.className = (n <= selected ? 'fas' : 'far') + ' fa-star star';
+        // Rely on CSS for colors; clear any inline color
+        el.style.color = '';
       });
     };
     for (let i=1;i<=5;i++){
       const star = document.createElement('i');
-      star.className = (i === score ? 'fas' : 'far') + ' fa-star star';
+      // Filled if index is <= current score
+      star.className = (i <= score ? 'fas' : 'far') + ' fa-star star';
       star.style.cursor = 'pointer';
       star.style.marginRight = '4px';
-      star.style.color = (i === score ? '#ffd700' : 'var(--text-muted)');
+      // Use CSS-driven colors
+      star.style.color = '';
       star.addEventListener('mouseenter', ()=> {
         stars.forEach((sEl, j)=>{
           const n = j + 1;
-          sEl.className = (n === i ? 'fas' : 'far') + ' fa-star star';
-          sEl.style.color = (n === i ? '#ffd700' : 'var(--text-muted)');
+          // Highlight cumulatively up to hovered star
+          sEl.className = (n <= i ? 'fas' : 'far') + ' fa-star star';
+          sEl.style.color = '';
         });
       });
       star.addEventListener('mouseleave', ()=> setStars(score));
