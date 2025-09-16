@@ -378,15 +378,26 @@ function isValidEmail(email) {
     wrap.className = 'star-rating-inline';
     let score = initialScore || 0;
     const stars = [];
-    const setStars = (s) => {
-      stars.forEach((el, i)=> el.className = (i < s ? 'fas' : 'far') + ' fa-star star');
+    const setStars = (selected) => {
+      stars.forEach((el, idx)=> {
+        const n = idx + 1;
+        el.className = (n === selected ? 'fas' : 'far') + ' fa-star star';
+        el.style.color = (n === selected ? '#ffd700' : 'var(--text-muted)');
+      });
     };
     for (let i=1;i<=5;i++){
       const star = document.createElement('i');
-      star.className = (i <= score ? 'fas' : 'far') + ' fa-star star';
+      star.className = (i === score ? 'fas' : 'far') + ' fa-star star';
       star.style.cursor = 'pointer';
       star.style.marginRight = '4px';
-      star.addEventListener('mouseenter', ()=> setStars(i));
+      star.style.color = (i === score ? '#ffd700' : 'var(--text-muted)');
+      star.addEventListener('mouseenter', ()=> {
+        stars.forEach((sEl, j)=>{
+          const n = j + 1;
+          sEl.className = (n === i ? 'fas' : 'far') + ' fa-star star';
+          sEl.style.color = (n === i ? '#ffd700' : 'var(--text-muted)');
+        });
+      });
       star.addEventListener('mouseleave', ()=> setStars(score));
       star.addEventListener('click', async ()=>{
         if (!window.CURRENT_USER_ID) { showFlashMessage('Connectez-vous pour noter', 'info'); return; }
@@ -419,6 +430,7 @@ function isValidEmail(email) {
     });
     wrap.appendChild(removeBtn);
     container.appendChild(wrap);
+    setStars(score);
   }
   window.renderStarWidget = renderStarWidget;
 
@@ -432,7 +444,15 @@ function isValidEmail(email) {
       const name = titleEl.textContent.trim();
       const slot = document.createElement('div');
       slot.className = 'stars-slot';
-      item.appendChild(slot);
+      const descEl = item.querySelector('.result-description');
+      const scoreEl = item.querySelector('.result-score');
+      if (descEl) {
+        item.insertBefore(slot, descEl);
+      } else if (scoreEl && scoreEl.nextSibling) {
+        item.insertBefore(slot, scoreEl.nextSibling);
+      } else {
+        item.appendChild(slot);
+      }
       const init = (window.MY_RATINGS && window.MY_RATINGS[name]) ? window.MY_RATINGS[name] : 0;
       renderStarWidget(slot, name, init);
     });
@@ -528,7 +548,9 @@ async function enhanceResultsWithMeta(containerId = 'search-results') {
       if (!item.querySelector('.result-description')) {
         const p = document.createElement('p');
         p.className = 'result-description';
-        p.textContent = info.synopsis || 'Aucune description disponible.';
+        const full = info.synopsis || 'Aucune description disponible.';
+        const trimmed = full.length > 400 ? (full.slice(0, 400) + '...') : full;
+        p.textContent = trimmed;
         item.appendChild(p);
       }
     });

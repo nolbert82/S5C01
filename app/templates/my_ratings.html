@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+
+{% block title %}Mes notes - Moteur de Séries TV{% endblock %}
+
+{% block content %}
+<div class="fade-in">
+  <div class="card">
+    <div class="card-header">
+      <h1 class="card-title"><i class="fas fa-bookmark"></i> Mes notes</h1>
+    </div>
+    <div id="my-ratings" class="search-results">
+      {% if rated_items and rated_items|length > 0 %}
+        {% for it in rated_items %}
+          <div class="result-item">
+            <h3 class="result-title">{{ it.name }}</h3>
+            <p class="result-score">Ma note: {{ it.rating }}/5</p>
+            <div class="stars-slot"></div>
+            <!-- description and image will be injected via JS enhanceResultsWithMeta -->
+          </div>
+        {% endfor %}
+      {% else %}
+        <p class="text-center text-muted">Vous n'avez pas encore noté de séries.</p>
+      {% endif %}
+    </div>
+  </div>
+  <div id="recommendations-loading" class="spinner hidden"></div>
+  <div id="recommendations" class="hidden"></div>
+  <!-- placeholders not used here, kept to avoid JS errors if referenced -->
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', async function(){
+  try {
+    // Ensure we have current ratings in global cache
+    if (typeof fetchMyRatings === 'function') { await fetchMyRatings(); }
+  } catch(e) {}
+
+  // Render stars widgets using global function
+  if (typeof renderStarWidget === 'function') {
+    document.querySelectorAll('#my-ratings .result-item').forEach(function(item){
+      const titleEl = item.querySelector('.result-title');
+      const name = titleEl ? titleEl.textContent.trim() : '';
+      const slot = item.querySelector('.stars-slot') || item;
+      const init = (window.MY_RATINGS && name && window.MY_RATINGS[name]) ? window.MY_RATINGS[name] : 0;
+      renderStarWidget(slot, name, init);
+    });
+  }
+
+  // Enrich with posters + synopsis
+  if (typeof enhanceResultsWithMeta === 'function') {
+    enhanceResultsWithMeta('my-ratings');
+  }
+});
+</script>
+{% endblock %}
+

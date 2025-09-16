@@ -62,9 +62,11 @@ def api_search():
     """
     query = (request.args.get("q") or "").strip()
     try:
-        top_n = int(request.args.get("top_n", 10))
+        top_n = int(request.args.get("top_n", 15))
     except (TypeError, ValueError):
-        top_n = 10
+        top_n = 15
+    # Cap to 15 max, non-negative
+    top_n = max(0, min(top_n, 15))
     # Unified behavior (combine when both are provided):
     # - If q and user_id: combine query + user profile
     # - If only q: simple search
@@ -267,6 +269,24 @@ def recommendations_page():
     # Récupérer les recommandations pour l'utilisateur actuel
     recommendations = ["Lost", "Dark", "Stranger Things", "The Office", "House"]
     return render_template("recommendations.html", recommendations=[])
+
+@app.route("/my-ratings")
+@login_required
+def my_ratings_page():
+    """Page listant les séries notées par l'utilisateur courant."""
+    user_ratings = Rating.query.filter_by(user_id=current_user.id).all()
+    items = []
+    for r in user_ratings:
+        serie = Serie.query.get(r.serie_id)
+        if not serie:
+            continue
+        try:
+            score = int(r.score)
+        except Exception:
+            score = 0
+        items.append({"name": serie.name, "rating": score})
+    items.sort(key=lambda x: x["name"].lower())
+    return render_template("my_ratings.html", rated_items=items)
 
 # --- AUTHENTIFICATION ---
 @app.route("/login", methods=["GET", "POST"])

@@ -173,20 +173,24 @@ class SearchEngine:
         """
         rows: List[csr_matrix] = []
         weights: List[float] = []
+        def _map_rating(score_val: float) -> float:
+            try:
+                iv = int(round(float(score_val)))
+            except (TypeError, ValueError):
+                return 0.0
+            # 1/5 terrible, 2/5 bad, 3/5 neutral, 4/5 good, 5/5 very good
+            mapping = {1: -2.0, 2: -1.0, 3: 0.0, 4: 1.0, 5: 2.0}
+            return mapping.get(iv, 0.0)
+
         for name, score in rated_items:
             idx = self._name_to_index.get(name)
             if idx is None:
                 continue
-            if score is None:
-                continue
-            try:
-                s = float(score)
-            except (TypeError, ValueError):
-                continue
-            if s <= 0:
+            w = _map_rating(score)
+            if w == 0.0:
                 continue
             rows.append(self._X[idx])
-            weights.append(s)
+            weights.append(w)
 
         if not rows:
             return csr_matrix((1, self._X.shape[1]))
@@ -251,9 +255,10 @@ class SearchEngine:
 
         scored = []
         for i, name in enumerate(self.series_names):
-            if name in exclude_set:
+            val = float(sims[i])
+            if val <= 0.0:
                 continue
-            scored.append((name, float(sims[i])))
+            scored.append((name, val))
 
         scored.sort(key=lambda x: x[1], reverse=True)
         return scored[: max(0, int(top_n))]
