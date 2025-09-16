@@ -19,7 +19,7 @@ from app.models import db, Serie, SeriesTerm
 from app.search import SearchEngine
 
 
-def import_dir(dir_path: str, truncate: bool = False, min_len: int = 3, max_terms: int = 1000):
+def import_dir(dir_path: str, truncate: bool = False, min_len: int = 3, max_terms: int = 3000):
     if not os.path.isdir(dir_path):
         print(f"Directory not found: {dir_path}")
         return
@@ -99,6 +99,6 @@ if __name__ == '__main__':
     parser.add_argument('--dir', default=os.path.join(BASE_DIR, 'data_word_frequency'), help='Directory with <serie>.txt files')
     parser.add_argument('--truncate', action='store_true', help='Delete existing terms for a serie before importing')
     parser.add_argument('--min-len', type=int, default=3, help='Minimum term length to keep (default: 3)')
-    parser.add_argument('--max-terms', type=int, default=1000, help='Maximum terms to keep per series (default: 1000)')
+    parser.add_argument('--max-terms', type=int, default=3000, help='Maximum terms to keep per series (default: 3000)')
     args = parser.parse_args()
     import_dir(args.dir, truncate=args.truncate, min_len=args.min_len, max_terms=args.max_terms)
