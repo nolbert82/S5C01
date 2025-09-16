@@ -85,7 +85,7 @@ function displaySearchResults(results) {
     const resultsHTML = results.map(result => `
         <div class="result-item fade-in">
             <h3 class="result-title">${result[0]}</h3>
-            <p class="result-score">Score de pertinence: ${(result[1] * 100).toFixed(1)}%</p>
+            <p class="result-score">Pertinence: ${(result[1] * 100).toFixed(1)}%</p>
             <p class="result-description">Série trouvée correspondant à votre recherche.</p>
         </div>
     `).join('');

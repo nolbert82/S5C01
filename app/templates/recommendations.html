@@ -59,7 +59,7 @@ async function performSearch(query){
     if (!Array.isArray(data) || data.length === 0){
       results.innerHTML = '<p class="text-center text-muted">Aucun résultat.</p>';
     } else {
-      results.innerHTML = data.map(([name, score])=>`<div class="result-item"><h3 class="result-title">${name}</h3><p class="result-score">Score: ${(score*100).toFixed(1)}%</p></div>`).join('');
+      results.innerHTML = data.map(([name, score])=>`<div class="result-item"><h3 class="result-title">${name}</h3><p class="result-score">Pertinence: ${(score*100).toFixed(1)}%</p></div>`).join('');
     }
   } catch(e){
     console.error(e);
