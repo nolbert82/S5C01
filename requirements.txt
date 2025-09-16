@@ -8,3 +8,4 @@ numpy==1.24.3
 # Archive extraction dependencies
 py7zr==0.20.6
 rarfile==4.0
+deep-translator==1.11.4

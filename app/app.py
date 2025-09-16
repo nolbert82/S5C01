@@ -113,16 +113,17 @@ def api_search():
         if include_meta:
             names = [name for name, _ in results]
             series = Serie.query.filter(Serie.name.in_(names)).all()
+            default_poster = url_for('static', filename='image/default_poster.jpg')
             meta = {s.name: {"synopsis": s.synopsis or "Aucune description disponible.",
-                              "image_url": s.image_url or ""} for s in series}
+                              "image_url": (s.image_url or default_poster)} for s in series}
             enriched = []
             for name, score in results:
-                m = meta.get(name, {"synopsis": "Aucune description disponible.", "image_url": ""})
+                m = meta.get(name, {"synopsis": "Aucune description disponible.", "image_url": default_poster})
                 enriched.append({
                     "name": name,
                     "score": score,
                     "synopsis": m.get("synopsis") or "Aucune description disponible.",
-                    "image_url": m.get("image_url") or "",
+                    "image_url": m.get("image_url") or default_poster,
                 })
             return jsonify(enriched)
 
@@ -242,14 +243,15 @@ def api_series_meta():
     if not names:
         return jsonify({})
     series = Serie.query.filter(Serie.name.in_(names)).all()
+    default_poster = url_for('static', filename='image/default_poster.jpg')
     meta = {s.name: {
         "synopsis": s.synopsis or "Aucune description disponible.",
-        "image_url": s.image_url or ""
+        "image_url": (s.image_url or default_poster)
     } for s in series}
     # include placeholders for missing
     for n in names:
         if n not in meta:
-            meta[n] = {"synopsis": "Aucune description disponible.", "image_url": ""}
+            meta[n] = {"synopsis": "Aucune description disponible.", "image_url": default_poster}
     return jsonify(meta)
 
 # --- INTERFACE WEB ---
