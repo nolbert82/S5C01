@@ -431,6 +431,7 @@ function isValidEmail(email) {
       if (!titleEl) return;
       const name = titleEl.textContent.trim();
       const slot = document.createElement('div');
+      slot.className = 'stars-slot';
       item.appendChild(slot);
       const init = (window.MY_RATINGS && window.MY_RATINGS[name]) ? window.MY_RATINGS[name] : 0;
       renderStarWidget(slot, name, init);

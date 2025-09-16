@@ -405,10 +405,22 @@ body {
 
 /* Results layout adjustments: consistent poster sizing */
 .result-item {
-    display: flex;
-    gap: 1rem;
-    align-items: flex-start;
+    display: grid;
+    grid-template-columns: 160px 1fr;
+    grid-template-areas:
+        "title title"
+        "media desc"
+        "stars desc";
+    column-gap: 1rem;
+    row-gap: 0.5rem;
+    align-items: start;
 }
+
+.result-title { grid-area: title; margin-bottom: 0; }
+.result-description { grid-area: desc; }
+.result-score { grid-area: desc; color: var(--text-muted); margin-bottom: 0.25rem; }
+.star-rating-inline { grid-area: stars; }
+.stars-slot { grid-area: stars; }
 
 .result-media {
     flex: 0 0 160px;
@@ -433,5 +445,13 @@ body {
 }
 
 @media (max-width: 640px) {
-    .result-media { flex-basis: 120px; height: 180px; }
+    .result-item {
+        grid-template-columns: 1fr;
+        grid-template-areas:
+            "title"
+            "media"
+            "stars"
+            "desc";
+    }
+    .result-media { width: 100%; height: auto; aspect-ratio: 2 / 3; }
 }
