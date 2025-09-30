@@ -72,7 +72,8 @@ def api_search():
     # - If only q: simple search
     # - If only user_id: recommendations
     user_id = request.args.get("user_id")
-    user_profile = None
+    user_profile_pos = None
+    user_profile_neg = None
     if user_id is not None:
         try:
             uid = int(user_id)
@@ -84,29 +85,37 @@ def api_search():
                     continue
                 rated_items.append((serie.name, r.score))
             if rated_items:
-                user_profile = search_engine.user_profile_from_ratings(rated_items)
+                user_profile_pos, user_profile_neg = search_engine.user_profile_from_ratings(rated_items)
         except (TypeError, ValueError):
-            user_profile = None
+            user_profile_pos = None
+            user_profile_neg = None
 
+    has_profile_signal = any(p is not None for p in (user_profile_pos, user_profile_neg))
     # If either signal is present, score now and return; client controls inclusion of user_id.
-    if query or user_profile is not None:
+    if query or has_profile_signal:
         # Weighting: allow override; default to reduce user influence when both are present
         try:
             alpha = float(request.args.get("alpha", 1.0))
         except (TypeError, ValueError):
             alpha = 1.0
-        default_beta = 0.005 if (query and user_profile is not None) else 1.0
+        default_beta = 0.005 if (query and has_profile_signal) else 1.0
         try:
             beta = float(request.args.get("beta", default_beta))
         except (TypeError, ValueError):
             beta = default_beta
+        try:
+            gamma = float(request.args.get("gamma", beta))
+        except (TypeError, ValueError):
+            gamma = beta
 
         results = search_engine.search(
             query=query or None,
-            user_profile=user_profile,
+            user_profile_positive=user_profile_pos,
+            user_profile_negative=user_profile_neg,
             top_n=top_n,
             alpha=alpha,
             beta=beta,
+            gamma=gamma,
         )
 
         include_meta = str(request.args.get("include_meta", "0")).lower() in {"1", "true", "yes"}
@@ -134,7 +143,8 @@ def api_search():
         exclude_seen = str(exclude_seen_param).lower() == "true"
 
     # Construire un profil utilisateur à partir des notes (si connecté)
-    user_profile = None
+    user_profile_pos = None
+    user_profile_neg = None
     rated_names = set()
     if current_user.is_authenticated:
         user_ratings = Rating.query.filter_by(user_id=current_user.id).all()
@@ -146,7 +156,7 @@ def api_search():
             rated_items.append((serie.name, r.score))
             rated_names.add(serie.name)
         if rated_items:
-            user_profile = search_engine.user_profile_from_ratings(rated_items)
+            user_profile_pos, user_profile_neg = search_engine.user_profile_from_ratings(rated_items)
 
     if exclude_seen is None:
         exclude_seen = (query == "")
@@ -155,7 +165,8 @@ def api_search():
 
     results = search_engine.search(
         query=query or None,
-        user_profile=user_profile,
+        user_profile_positive=user_profile_pos,
+        user_profile_negative=user_profile_neg,
         top_n=top_n,
         exclude_names=exclude_names,
     )

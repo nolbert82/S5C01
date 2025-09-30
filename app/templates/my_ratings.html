@@ -8,10 +8,17 @@
     <div class="card-header">
       <h1 class="card-title"><i class="fas fa-bookmark"></i> Mes notes</h1>
     </div>
+    <div class="ratings-controls">
+      <label for="ratings-sort" class="sr-label">Trier par note :</label>
+      <select id="ratings-sort" class="form-select">
+        <option value="desc" selected>Note d&#233;croissante</option>
+        <option value="asc">Note croissante</option>
+      </select>
+    </div>
     <div id="my-ratings" class="search-results">
       {% if rated_items and rated_items|length > 0 %}
         {% for it in rated_items %}
-          <div class="result-item">
+          <div class="result-item" data-rating="{{ it.rating }}">
             <h3 class="result-title">{{ it.name }}</h3>
             <p class="result-score">Ma note: {{ it.rating }}/5</p>
             <div class="stars-slot"></div>
@@ -32,6 +39,30 @@
 {% block scripts %}
 <script>
 document.addEventListener('DOMContentLoaded', async function(){
+  const ratingsContainer = document.getElementById('my-ratings');
+  const sortSelect = document.getElementById('ratings-sort');
+
+  function applyRatingsSort(order) {
+    if (!ratingsContainer) return;
+    const items = Array.from(ratingsContainer.querySelectorAll('.result-item'));
+    if (items.length === 0) return;
+    items.sort((a, b) => {
+      const ra = parseFloat(a.dataset.rating || '0');
+      const rb = parseFloat(b.dataset.rating || '0');
+      return order === 'asc' ? ra - rb : rb - ra;
+    });
+    items.forEach(item => ratingsContainer.appendChild(item));
+  }
+
+  if (sortSelect) {
+    sortSelect.addEventListener('change', function(e){
+      applyRatingsSort(e.target.value);
+    });
+    applyRatingsSort(sortSelect.value || 'desc');
+  } else {
+    applyRatingsSort('desc');
+  }
+
   try {
     // Ensure we have current ratings in global cache
     if (typeof fetchMyRatings === 'function') { await fetchMyRatings(); }

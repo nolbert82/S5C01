@@ -165,42 +165,50 @@ class SearchEngine:
         v_tfidf = self._tfidf.transform(v)
         return normalize(v_tfidf, norm="l2")
 
-    def user_profile_from_ratings(self, rated_items: Sequence[Tuple[str, float]]) -> csr_matrix:
+    def user_profile_from_ratings(
+        self, rated_items: Sequence[Tuple[str, float]]
+    ) -> Tuple[Optional[csr_matrix], Optional[csr_matrix]]:
         """
-        Build a user profile vector as the weighted (by rating) combination
-        of the user's rated series TF-IDF vectors.
-        rated_items: sequence of (series_name, rating_score)
+        Build separate profile vectors for liked and disliked series.
+        Returns a tuple: (positive_profile, negative_profile).
         """
-        rows: List[csr_matrix] = []
-        weights: List[float] = []
-        def _map_rating(score_val: float) -> float:
-            try:
-                iv = int(round(float(score_val)))
-            except (TypeError, ValueError):
-                return 0.0
-            # 1/5 terrible, 2/5 bad, 3/5 neutral, 4/5 good, 5/5 very good
-            mapping = {1: -2.0, 2: -1.0, 3: 0.0, 4: 1.0, 5: 2.0}
-            return mapping.get(iv, 0.0)
+
+        def _aggregate(rows: List[csr_matrix], weights: List[float]) -> Optional[csr_matrix]:
+            if not rows:
+                return None
+            stacked = vstack(rows)
+            w = np.asarray(weights).reshape(-1, 1)
+            prof = (stacked.multiply(w)).sum(axis=0)
+            prof = csr_matrix(prof)
+            prof = normalize(prof, norm="l2")
+            return prof
+
+        pos_rows: List[csr_matrix] = []
+        pos_weights: List[float] = []
+        neg_rows: List[csr_matrix] = []
+        neg_weights: List[float] = []
 
         for name, score in rated_items:
             idx = self._name_to_index.get(name)
             if idx is None:
                 continue
-            w = _map_rating(score)
-            if w == 0.0:
+            try:
+                iv = int(round(float(score)))
+            except (TypeError, ValueError):
                 continue
-            rows.append(self._X[idx])
-            weights.append(w)
+            if iv == 3:
+                continue  # neutral rating, no impact
+            magnitude = {1: 2.0, 2: 1.0, 4: 1.0, 5: 2.0}.get(iv)
+            if magnitude is None:
+                continue
+            if iv >= 4:
+                pos_rows.append(self._X[idx])
+                pos_weights.append(magnitude)
+            elif iv <= 2:
+                neg_rows.append(self._X[idx])
+                neg_weights.append(magnitude)
 
-        if not rows:
-            return csr_matrix((1, self._X.shape[1]))
-
-        # Weighted sum of normalized vectors
-        stacked = vstack(rows)
-        w = np.asarray(weights).reshape(-1, 1)
-        prof = (stacked.multiply(w)).sum(axis=0)
-        prof = csr_matrix(prof)
-        return normalize(prof, norm="l2")
+        return _aggregate(pos_rows, pos_weights), _aggregate(neg_rows, neg_weights)
 
     # ----------------------
     # Search / Recommend
@@ -208,17 +216,20 @@ class SearchEngine:
     def search(
         self,
         query: Optional[str] = None,
-        user_profile: Optional[csr_matrix] = None,
+        user_profile_positive: Optional[csr_matrix] = None,
+        user_profile_negative: Optional[csr_matrix] = None,
         top_n: int = 10,
         exclude_names: Optional[Iterable[str]] = None,
         alpha: float = 1.0,
         beta: float = 1.0,
+        gamma: float = 1.0,
     ) -> List[Tuple[str, float]]:
         """
         Compute relevance scores for all series and return top results.
         - If only `query` is provided: query-based search.
-        - If only `user_profile` is provided: recommendation based on ratings.
-        - If both are provided: combine vectors with weights alpha and beta.
+        - If only `user_profile_positive` is provided: recommend from liked items.
+        - If only `user_profile_negative` is provided: push away from disliked items.
+        - If several signals are provided: combine with weights alpha/beta/gamma.
         - Can exclude a set of series names from results (e.g., already rated).
         Returns: list of (series_name, score) sorted by score desc.
         """
@@ -228,35 +239,27 @@ class SearchEngine:
 
         exclude_set = set(exclude_names or [])
 
-        parts: List[csr_matrix] = []
-        weights: List[float] = []
+        sims = np.zeros(self._X.shape[0], dtype=float)
+
         if query:
             qv = self.vectorize_query(query)
-            parts.append(qv)
-            weights.append(alpha)
-        if user_profile is not None and user_profile.shape[1] == self._X.shape[1]:
-            parts.append(user_profile)
-            weights.append(beta)
+            if qv.shape[1] == self._X.shape[1]:
+                sims += alpha * (qv @ self._X.T).toarray().ravel()
 
-        if not parts:
-            # Nothing to score against
+        if user_profile_positive is not None and user_profile_positive.shape[1] == self._X.shape[1]:
+            sims += beta * (user_profile_positive @ self._X.T).toarray().ravel()
+
+        if user_profile_negative is not None and user_profile_negative.shape[1] == self._X.shape[1]:
+            sims -= gamma * (user_profile_negative @ self._X.T).toarray().ravel()
+
+        if not np.any(sims):
+            # If all signals missing, nothing to rank
             return []
-
-        # Weighted sum and normalize
-        combined = None
-        for p, w in zip(parts, weights):
-            combined = p.multiply(w) if combined is None else combined + p.multiply(w)
-        # Handle potential empty vector (e.g., query has no known tokens)
-        if combined.shape[1] == 0:
-            return []
-        combined = normalize(combined, norm="l2")
-
-        sims = (combined @ self._X.T).toarray().ravel()  # cosine similarities
 
         scored = []
         for i, name in enumerate(self.series_names):
             val = float(sims[i])
-            if val <= 0.0:
+            if name in exclude_set:
                 continue
             scored.append((name, val))
 
