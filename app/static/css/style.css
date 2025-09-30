@@ -49,7 +49,49 @@ body {
     align-items: center;
 }
 
+.nav-left,
+.nav-center,
+.nav-right {
+    display: flex;
+    align-items: center;
+}
+
+.nav-left {
+    gap: 0.75rem;
+}
+
+.nav-center {
+    flex: 1;
+    justify-content: center;
+}
+
+.nav-right {
+    justify-content: flex-end;
+}
+
+.nav-logo {
+    height: 42px;
+    width: auto;
+    display: block;
+}
+
+.nav-links-center {
+    gap: 1.5rem;
+}
+
+.nav-links-right {
+    gap: 1.25rem;
+}
+
+.nav-right .nav-links {
+    justify-content: flex-end;
+}
+
+
 .nav-brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.75rem;
     font-size: 1.5rem;
     font-weight: bold;
     color: var(--accent-blue);
@@ -80,6 +122,19 @@ body {
     color: var(--accent-blue);
     background-color: var(--tertiary-bg);
 }
+
+.text-primary {
+    color: var(--accent-blue) !important;
+}
+
+a.text-primary:hover {
+    color: var(--accent-blue-light) !important;
+}
+
+.text-secondary {
+    color: var(--text-secondary) !important;
+}
+
 
 /* Container principal */
 .container {
