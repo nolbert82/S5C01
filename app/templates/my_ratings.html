@@ -9,11 +9,9 @@
       <h1 class="card-title"><i class="fas fa-bookmark"></i> Mes notes</h1>
     </div>
     <div class="ratings-controls">
-      <label for="ratings-sort" class="sr-label">Trier par note :</label>
-      <select id="ratings-sort" class="form-select">
-        <option value="desc" selected>Note d&#233;croissante</option>
-        <option value="asc">Note croissante</option>
-      </select>
+      <button type="button" id="ratings-sort-toggle" class="btn btn-outline-light btn-icon" aria-label="Trier par note d&#233;croissante" title="Trier par note d&#233;croissante">
+        <i class="fas fa-arrow-down-wide-short" aria-hidden="true"></i>
+      </button>
     </div>
     <div id="my-ratings" class="search-results">
       {% if rated_items and rated_items|length > 0 %}
@@ -40,7 +38,8 @@
 <script>
 document.addEventListener('DOMContentLoaded', async function(){
   const ratingsContainer = document.getElementById('my-ratings');
-  const sortSelect = document.getElementById('ratings-sort');
+  const sortToggle = document.getElementById('ratings-sort-toggle');
+  let currentOrder = 'desc';
 
   function applyRatingsSort(order) {
     if (!ratingsContainer) return;
@@ -52,15 +51,30 @@ document.addEventListener('DOMContentLoaded', async function(){
       return order === 'asc' ? ra - rb : rb - ra;
     });
     items.forEach(item => ratingsContainer.appendChild(item));
+    currentOrder = order;
+    updateToggleAppearance();
   }
 
-  if (sortSelect) {
-    sortSelect.addEventListener('change', function(e){
-      applyRatingsSort(e.target.value);
+  function updateToggleAppearance() {
+    if (!sortToggle) return;
+    const icon = sortToggle.querySelector('i');
+    const nextOrder = currentOrder === 'asc' ? 'desc' : 'asc';
+    if (icon) {
+      icon.className = currentOrder === 'asc' ? 'fas fa-arrow-up-wide-short' : 'fas fa-arrow-down-wide-short';
+    }
+    const label = nextOrder === 'asc' ? 'Trier par note croissante' : 'Trier par note d&#233;croissante';
+    sortToggle.setAttribute('aria-label', label);
+    sortToggle.setAttribute('title', label);
+  }
+
+  if (sortToggle) {
+    sortToggle.addEventListener('click', function(){
+      const nextOrder = currentOrder === 'asc' ? 'desc' : 'asc';
+      applyRatingsSort(nextOrder);
     });
-    applyRatingsSort(sortSelect.value || 'desc');
+    applyRatingsSort(currentOrder);
   } else {
-    applyRatingsSort('desc');
+    applyRatingsSort(currentOrder);
   }
 
   try {
