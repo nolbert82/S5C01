@@ -256,6 +256,14 @@ class SearchEngine:
             # If all signals missing, nothing to rank
             return []
 
+        # Normalize scores into [0, 1] to avoid negative percentages downstream
+        min_val = sims.min()
+        max_val = sims.max()
+        if max_val != min_val:
+            sims = (sims - min_val) / (max_val - min_val)
+        else:
+            sims = np.zeros_like(sims)
+
         scored = []
         for i, name in enumerate(self.series_names):
             val = float(sims[i])
