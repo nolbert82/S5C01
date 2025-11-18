@@ -70,9 +70,10 @@ body {
 }
 
 .nav-logo {
-    height: 42px;
+    height: 250%;
     width: auto;
     display: block;
+    object-fit: cover; /* crop if taller than its slot */
 }
 
 .nav-links-center {
@@ -96,6 +97,7 @@ body {
     font-weight: bold;
     color: var(--accent-blue);
     text-decoration: none;
+    height: 48px; /* fix navbar height; logo scales inside */
 }
 
 .nav-links {
