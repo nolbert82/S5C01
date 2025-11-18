@@ -172,12 +172,6 @@ def api_search():
     )
     return jsonify(results)
 
-@app.route("/api/recommend")
-def api_recommend():
-    user_id = request.args.get("user_id")
-    # TODO: implémenter reco content-based
-    return jsonify({"user_id": user_id, "recommendations": ["Lost", "Dark", "Stranger Things"]})
-
 @app.route("/api/rate", methods=["POST"])
 @login_required
 def rate_serie():
@@ -279,9 +273,7 @@ def search_page():
 @app.route("/recommendations")
 @login_required
 def recommendations_page():
-    # Récupérer les recommandations pour l'utilisateur actuel
-    recommendations = ["Lost", "Dark", "Stranger Things", "The Office", "House"]
-    return render_template("recommendations.html", recommendations=[])
+    return render_template("recommendations.html")
 
 @app.route("/my-ratings")
 @login_required

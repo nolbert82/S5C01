@@ -68,11 +68,6 @@
         {% block content %}{% endblock %}
     </main>
 
-    <!-- Global user context for JS -->
-    <script>
-        window.CURRENT_USER_ID = {% if current_user.is_authenticated %}{{ current_user.id }}{% else %}null{% endif %};
-    </script>
-    <!-- Scripts -->
     <script src="{{ url_for('static', filename='js/main.js') }}"></script>
     {% block scripts %}{% endblock %}
 </body>

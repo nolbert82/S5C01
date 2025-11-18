@@ -239,13 +239,6 @@ function highlightStars(stars, rating) {
     });
 }
 
-// Obtenir l'ID de l'utilisateur actuel (à adapter selon votre système d'auth)
-function getCurrentUserId() {
-    // Cette fonction doit être adaptée selon votre système d'authentification
-    // Pour l'instant, on retourne null
-    return null;
-}
-
 // Confirmation de suppression
 function confirmDelete(message = 'Êtes-vous sûr de vouloir supprimer cet élément ?') {
     return confirm(message);
