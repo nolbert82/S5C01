@@ -95,13 +95,6 @@ function displaySearchResults(results) {
 
 // Gestion des recommandations
 function loadRecommendations() {
-    const userId = getCurrentUserId();
-    if (false && !userId) {
-        showFlashMessage('Veuillez vous connecter pour voir vos recommandations', 'info');
-        return;
-    }
-    
-    const recommendationsContainer = document.getElementById('recommendations');
     const loadingSpinner = document.getElementById('recommendations-loading');
     
     if (loadingSpinner) {
@@ -239,12 +232,6 @@ function highlightStars(stars, rating) {
     });
 }
 
-// Obtenir l'ID de l'utilisateur actuel (à adapter selon votre système d'auth)
-function getCurrentUserId() {
-    // Cette fonction doit être adaptée selon votre système d'authentification
-    // Pour l'instant, on retourne null
-    return null;
-}
 
 // Confirmation de suppression
 function confirmDelete(message = 'Êtes-vous sûr de vouloir supprimer cet élément ?') {

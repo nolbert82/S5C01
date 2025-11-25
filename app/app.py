@@ -1,7 +1,7 @@
 ﻿from flask import Flask, request, jsonify, render_template, redirect, url_for, flash
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from flask_cors import CORS
-from app.models import db, Serie, User, Rating
+from app.models import db, Serie, User, Rating, SeriesTerm
 from app.search import SearchEngine
 import os
 
@@ -165,12 +165,6 @@ def api_search():
     )
     return jsonify(results)
 
-@app.route("/api/recommend")
-def api_recommend():
-    user_id = request.args.get("user_id")
-    # TODO: implémenter reco content-based
-    return jsonify({"user_id": user_id, "recommendations": ["Lost", "Dark", "Stranger Things"]})
-
 @app.route("/api/rate", methods=["POST"])
 @login_required
 def rate_serie():
@@ -272,8 +266,6 @@ def search_page():
 @app.route("/recommendations")
 @login_required
 def recommendations_page():
-    # Récupérer les recommandations pour l'utilisateur actuel
-    recommendations = ["Lost", "Dark", "Stranger Things", "The Office", "House"]
     return render_template("recommendations.html", recommendations=[])
 
 @app.route("/my-ratings")
