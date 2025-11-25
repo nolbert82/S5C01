@@ -284,6 +284,35 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 
+// Navigation responsive (hamburger)
+document.addEventListener('DOMContentLoaded', function() {
+    const navToggle = document.querySelector('.nav-toggle');
+    const navLinks = document.getElementById('primary-nav-links');
+    if (!navToggle || !navLinks) {
+        return;
+    }
+    const closeNav = () => {
+        navLinks.classList.remove('open');
+        navToggle.setAttribute('aria-expanded', 'false');
+    };
+    navToggle.addEventListener('click', () => {
+        const isOpen = navLinks.classList.toggle('open');
+        navToggle.setAttribute('aria-expanded', String(isOpen));
+    });
+    navLinks.querySelectorAll('a').forEach(link => {
+        link.addEventListener('click', () => {
+            if (window.matchMedia('(max-width: 768px)').matches) {
+                closeNav();
+            }
+        });
+    });
+    window.addEventListener('resize', () => {
+        if (!window.matchMedia('(max-width: 768px)').matches) {
+            closeNav();
+        }
+    });
+});
+
 // Gestion des formulaires
 function setupFormValidation() {
     const forms = document.querySelectorAll('form[data-validate]');
