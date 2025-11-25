@@ -269,6 +269,8 @@ class SearchEngine:
             val = float(sims[i])
             if name in exclude_set:
                 continue
+            if val <= 0.0:
+                continue
             scored.append((name, val))
 
         scored.sort(key=lambda x: x[1], reverse=True)

@@ -32,21 +32,10 @@ def load_user(user_id):
     return User.query.get(int(user_id))
 
 # --- Initialisation du moteur de recherche ---
-# Construit le moteur TF-IDF uniquement depuis la base de données.
-try:
-    with app.app_context():
-        _series_counts = SearchEngine.load_series_counts_from_db()
-        search_engine = SearchEngine(_series_counts)
-except Exception:
-    # Initialise un moteur vide si la base n'est pas prête
-    search_engine = SearchEngine({})
+with app.app_context():
+    _series_counts = SearchEngine.load_series_counts_from_db()
+    search_engine = SearchEngine(_series_counts)
 
-def populate_series_in_db(series_names):
-    """Ajoute les séries dans la base si elles n'existent pas encore."""
-    for name in series_names:
-        if not Serie.query.filter_by(name=name).first():
-            db.session.add(Serie(name=name))
-    db.session.commit()
 
 # --- ROUTES API ---
 @app.route("/api/search")
@@ -74,6 +63,7 @@ def api_search():
     user_id = request.args.get("user_id")
     user_profile_pos = None
     user_profile_neg = None
+    rated_names_for_user_id = set()
     if user_id is not None:
         try:
             uid = int(user_id)
@@ -84,6 +74,7 @@ def api_search():
                 if not serie:
                     continue
                 rated_items.append((serie.name, r.score))
+                rated_names_for_user_id.add(serie.name)
             if rated_items:
                 user_profile_pos, user_profile_neg = search_engine.user_profile_from_ratings(rated_items)
         except (TypeError, ValueError):
@@ -108,6 +99,7 @@ def api_search():
         except (TypeError, ValueError):
             gamma = beta
 
+        exclude_rated = (not query) and bool(rated_names_for_user_id)
         results = search_engine.search(
             query=query or None,
             user_profile_positive=user_profile_pos,
@@ -116,6 +108,7 @@ def api_search():
             alpha=alpha,
             beta=beta,
             gamma=gamma,
+            exclude_names=rated_names_for_user_id if exclude_rated else None,
         )
 
         include_meta = str(request.args.get("include_meta", "0")).lower() in {"1", "true", "yes"}
@@ -423,31 +416,6 @@ def admin_delete_user(user_id):
     flash(f"L'utilisateur {username} a été supprimé.", "success")
     return redirect(url_for("admin_users"))
 
-# --- INITIALISATION ---
-def create_admin_user():
-    """Créer un utilisateur admin par défaut"""
-    admin = User.query.filter_by(username="admin").first()
-    if not admin:
-        admin = User(username="admin", email="admin@example.com", is_admin=True)
-        admin.set_password("admin123")
-        db.session.add(admin)
-        
-        # Créer aussi un utilisateur normal pour les tests
-        user = User(username="user", email="user@example.com", is_admin=False)
-        user.set_password("user123")
-        db.session.add(user)
-        
-        db.session.commit()
-        print("Utilisateurs par défaut créés : admin/admin123 et user/user123")
 
 if __name__ == "__main__":
-    with app.app_context():
-        db.create_all()
-        # Optionnel: s'assurer que les séries de l'index existent côté DB
-        try:
-            populate_series_in_db(getattr(search_engine, 'series_names', []))
-        except Exception:
-            # Non-fatal in dev
-            pass
-        create_admin_user()
     app.run(debug=True)
