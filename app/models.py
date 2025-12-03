@@ -9,7 +9,6 @@ class Serie(db.Model):
     name = db.Column(db.String, nullable=False)
     synopsis = db.Column(db.Text, nullable=True)
     image_url = db.Column(db.String, nullable=True)
-    rating = db.Column(db.Float, nullable=True)
 
 class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
