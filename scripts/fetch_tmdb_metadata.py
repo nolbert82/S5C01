@@ -1,18 +1,3 @@
-#!/usr/bin/env python3
-"""
-Populate Serie metadata (real name, synopsis, image) from TVMaze for the series
-already present in your database.
-
-Usage:
-  python scripts/fetch_tmdb_metadata.py [--only-missing] [--no-rename] [--sleep 0.2]
-
-Notes:
-  - Uses TVMaze singlesearch endpoint, no API key required:
-      https://api.tvmaze.com/singlesearch/shows?q=<name>
-  - Reads shows from the `serie` table and updates fields in place.
-  - Only touches rows that are missing metadata when --only-missing is set.
-  - By default, also updates the show name to TVMaze's canonical `name`.
-"""
 import os
 import sys
 import json
@@ -25,9 +10,8 @@ from urllib import request, parse, error
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, BASE_DIR)
 
-from app.app import app  # noqa: E402
-from app.models import db, Serie  # noqa: E402
-
+from app.app import app  
+from app.models import db, Serie  
 
 def http_get_json(url: str, params: dict | None = None, headers: dict | None = None):
     if params:
@@ -55,12 +39,10 @@ def norm(s: str) -> str:
 def strip_tags(html: str) -> str:
     if not html:
         return ''
-    # Remove simple HTML tags from TVMaze summary
     return re.sub(r"<[^>]+>", "", html)
 
 
 def update_one(serie: Serie, update_name: bool) -> bool:
-    # TVMaze singlesearch returns a single best match or 404
     base = "https://api.tvmaze.com/singlesearch/shows"
     try:
         data = http_get_json(base, params={"q": serie.name})
@@ -99,7 +81,6 @@ def main():
     skipped = 0
 
     with app.app_context():
-        # Ensure tables exist (in case script runs before app bootstrap)
         db.create_all()
         q = Serie.query
         if args.only_missing:

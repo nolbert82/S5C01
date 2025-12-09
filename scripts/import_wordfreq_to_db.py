@@ -6,9 +6,7 @@ import unicodedata
 from typing import Dict, Tuple
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-# Ensure imports resolve from project root
 sys.path.insert(0, BASE_DIR)
-# Ensure sqlite relative URI in app points to the same location regardless of cwd
 try:
     os.chdir(BASE_DIR)
 except OSError:
@@ -29,7 +27,6 @@ def import_dir(dir_path: str, truncate: bool = False, min_len: int = 3, max_term
 
     with app.app_context():
         db.create_all()
-        # Fetch existing series in insertion order (id ASC) to align with file order
         series_list = Serie.query.order_by(Serie.id.asc()).all()
         if not series_list:
             print("No series found in DB. Aborting without creating any new series.")
@@ -45,7 +42,6 @@ def import_dir(dir_path: str, truncate: bool = False, min_len: int = 3, max_term
             serie = series_list[i]
             serie_name = os.path.splitext(filename)[0]
             file_path = os.path.join(dir_path, filename)
-            # Optional: warn if names differ but continue as per order mapping
             if (serie.name or '').strip() != serie_name.strip():
                 print(f"Note: DB serie '{serie.name}' mapped to file '{serie_name}'.")
 
@@ -58,7 +54,6 @@ def import_dir(dir_path: str, truncate: bool = False, min_len: int = 3, max_term
                             continue
                         term, count_str = line.split(':', 1)
                         term = SearchEngine._normalize_text(term.strip())
-                        # Skip very short terms (<= min_len - 1)
                         if len(term) < min_len:
                             continue
                         try:
@@ -70,7 +65,6 @@ def import_dir(dir_path: str, truncate: bool = False, min_len: int = 3, max_term
             except OSError:
                 continue
 
-            # Keep only top-N terms by count
             if terms:
                 sorted_terms: Tuple[Tuple[str, float], ...] = tuple(sorted(terms.items(), key=lambda kv: kv[1], reverse=True))
                 terms = dict(sorted_terms[:max_terms])
