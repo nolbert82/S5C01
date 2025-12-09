@@ -1,36 +1,25 @@
 import unittest
 import sys
 import os
+import time
 
-# 1. On récupère le chemin du dossier actuel
 current_dir = os.path.dirname(os.path.abspath(__file__))
-
-# 2. On ajoute ce dossier au "path" de Python
 sys.path.append(current_dir)
-
-# 3. TRUC MAGIQUE : On force Python à croire que le dossier "app" est un package
-# Cela permet aux imports 'from app.models' dans app.py de fonctionner
 if current_dir not in sys.path:
     sys.path.append(current_dir)
-
-# Il faut s'assurer que le dossier parent est aussi dans le path pour trouver 'app'
 parent_dir = os.path.dirname(current_dir)
 sys.path.append(parent_dir)
 
-# Maintenant on peut importer
 try:
-    # On essaie d'importer depuis le dossier 'app'
     from app.app import app, db
     from app.models import User, Rating, Serie
 except ImportError:
-    # Si le fichier test est DANS le dossier app, on tente autrement
     from app import app, db
     from models import User, Rating, Serie
 
 class TestExistingDB(unittest.TestCase):
 
     def setUp(self):
-        """Configuration avant chaque test."""
         app.config['TESTING'] = True
         app.config['WTF_CSRF_ENABLED'] = False
         
@@ -55,12 +44,10 @@ class TestExistingDB(unittest.TestCase):
         db.session.commit()
 
     def tearDown(self):
-        """Nettoyage après chaque test."""
         self.cleanup_test_user()
         self.app_context.pop()
 
     def cleanup_test_user(self):
-        """Supprime l'utilisateur temporaire et ses notes."""
         u = User.query.filter_by(username=self.test_username).first()
         if u:
             # On supprime ses notes d'abord
@@ -71,7 +58,6 @@ class TestExistingDB(unittest.TestCase):
     # --- SECTION 1: RECHERCHE (Sur vos données existantes) ---
 
     def test_1_search_lost(self):
-        """Cherche 'crash avion île' et vérifie si Lost sort."""
         print(f"\n[Test] Recherche 'crash avion île'...")
         response = self.client.get('/api/search?q=crash avion île')
         data = response.get_json()
@@ -84,15 +70,13 @@ class TestExistingDB(unittest.TestCase):
         self.assertIn("Lost", first_result_name)
 
     def test_2_search_nonsense(self):
-        """Cherche n'importe quoi."""
-        print(f"\n[Test] Recherche 'ifdgyvqo' (doit être vide)...")
+        print(f"\n[Test] Recherche 'ifdgyvqo' (doit être vide)")
         response = self.client.get('/api/search?q=ifdgyvqo')
         data = response.get_json()
         self.assertEqual(len(data), 0)
         print("   -> OK (Vide)")
 
     def test_3_search_breaking_bad(self):
-        """Cherche 'meth' et espère trouver Breaking Bad."""
         print(f"\n[Test] Recherche 'meth'...")
         response = self.client.get('/api/search?q=meth')
         data = response.get_json()
@@ -100,10 +84,18 @@ class TestExistingDB(unittest.TestCase):
         print(f"   -> Résultats : {names[:3]}")
         self.assertIn("Breaking Bad", names)
 
+    def test_3b_search_response_time(self):
+        print(f"\n[Test] Performance recherche 'lost'...")
+        start = time.perf_counter()
+        response = self.client.get('/api/search?q=lost')
+        elapsed_ms = (time.perf_counter() - start) * 1000
+        print(f"   -> Temps de réponse : {elapsed_ms:.2f} ms")
+        self.assertEqual(response.status_code, 200)
+        self.assertLess(elapsed_ms, 100, f"Temps de réponse trop long: {elapsed_ms:.2f} ms")
+
     # --- SECTION 2: RECOMMANDATIONS & NOTES ---
 
     def test_4_recommendations_empty(self):
-        """Teste les recommandations sans notes (doit être vide)."""
         print(f"\n[Test] Recommandations sans notes...")
         self.client.post('/login', data={'username': self.test_username, 'password': self.test_password})
         
@@ -113,7 +105,6 @@ class TestExistingDB(unittest.TestCase):
         print("   -> OK (Vide)")
 
     def test_5_rating_flow(self):
-        """Teste : Noter -> Vérifier -> Supprimer la note."""
         print(f"\n[Test] Cycle de notation...")
         
         # Connexion
@@ -146,8 +137,7 @@ class TestExistingDB(unittest.TestCase):
 
     # --- SECTION 3: ADMIN ---
 
-    def test_6_admin_rights(self):
-        """Teste la promotion admin."""
+    def test_6_admin(self):
         print(f"\n[Test] Promotion Admin...")
         
         # Création d'un admin temporaire pour effectuer l'action
