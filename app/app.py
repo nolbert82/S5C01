@@ -40,15 +40,6 @@ with app.app_context():
 # --- ROUTES API ---
 @app.route("/api/search")
 def api_search():
-    """
-    Endpoint unifié de recherche/recommandation.
-    - q (str, optionnel): requête libre. Si absent et utilisateur connecté,
-      renvoie des recommandations basées sur ses notes.
-    - top_n (int, optionnel): nombre de résultats (défaut: 10)
-    - exclude_seen (bool, optionnel): exclut les séries déjà notées. Par défaut,
-      vrai quand q est vide, faux sinon.
-    Retour: liste de paires [serie_name, score]
-    """
     query = (request.args.get("q") or "").strip()
     try:
         top_n = int(request.args.get("top_n", 15))
@@ -175,12 +166,8 @@ def rate_serie():
     if not serie_name or not rating:
         return jsonify({"success": False, "message": "Données manquantes"})
     
-    # Chercher ou créer la série
+    # Chercher la série
     serie = Serie.query.filter_by(name=serie_name).first()
-    if not serie:
-        serie = Serie(name=serie_name)
-        db.session.add(serie)
-        db.session.commit()
     
     # Vérifier si l'utilisateur a déjà noté cette série
     existing_rating = Rating.query.filter_by(
@@ -230,10 +217,6 @@ def api_my_ratings():
 
 @app.route("/api/series_meta")
 def api_series_meta():
-    """Return metadata for a list of series names.
-    Query params: names=comma,separated,names
-    Response: { name: { synopsis, image_url } }
-    """
     names_param = request.args.get("names", "").strip()
     if not names_param:
         return jsonify({})
@@ -255,7 +238,7 @@ def api_series_meta():
 # --- INTERFACE WEB ---
 @app.route("/")
 def index():
-    # Rediriger vers la page de recherche comme page principale
+    # La page de recherche est la page d'accueil
     return redirect(url_for("search_page"))
 
 @app.route("/search")
@@ -271,7 +254,6 @@ def recommendations_page():
 @app.route("/my-ratings")
 @login_required
 def my_ratings_page():
-    """Page listant les séries notées par l'utilisateur courant."""
     user_ratings = Rating.query.filter_by(user_id=current_user.id).all()
     items = []
     for r in user_ratings:
@@ -286,7 +268,6 @@ def my_ratings_page():
     items.sort(key=lambda x: x["name"].lower())
     return render_template("my_ratings.html", rated_items=items)
 
-# --- AUTHENTIFICATION ---
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
@@ -345,7 +326,6 @@ def logout():
     flash("Vous avez été déconnecté.", "info")
     return redirect(url_for("search_page"))
 
-# --- ADMIN ROUTES ---
 @app.route("/admin/users")
 @login_required
 def admin_users():
