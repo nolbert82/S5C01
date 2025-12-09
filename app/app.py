@@ -6,10 +6,11 @@ from app.search import SearchEngine
 import os
 
 app = Flask(__name__)
+# Configuration de la base de données SQLite et de la clé secrète pour les sessions
 app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///series.db"
 app.config["SECRET_KEY"] = "CLESECRETE"
 
-# Configuration CORS pour permettre l'accès à l'API depuis l'extérieur
+# Configuration CORS pour permettre l'accès à l'API depuis des origines externes
 CORS(app, resources={
     r"/api/*": {
         "origins": "*",
@@ -18,21 +19,24 @@ CORS(app, resources={
     }
 })
 
-# Initialisation de Flask-Login
+# Initialisation et configuration du gestionnaire de connexion utilisateur
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
 login_manager.login_message = 'Veuillez vous connecter pour accéder à cette page.'
 login_manager.login_message_category = 'info'
 
+# Lier l'instance de base de données à l'application Flask
 db.init_app(app)
 
 @login_manager.user_loader
 def load_user(user_id):
+    # Fonction de rappel pour recharger l'objet utilisateur à partir de la session
     return User.query.get(int(user_id))
 
 # --- Initialisation du moteur de recherche ---
 with app.app_context():
+    # Chargement des fréquences de mots depuis la BDD et instanciation du moteur
     _series_counts = SearchEngine.load_series_counts_from_db()
     search_engine = SearchEngine(_series_counts)
 
@@ -40,21 +44,19 @@ with app.app_context():
 # --- ROUTES API ---
 @app.route("/api/search")
 def api_search():
+    # Récupération et nettoyage des paramètres de recherche de la requête
     query = (request.args.get("q") or "").strip()
     try:
         top_n = int(request.args.get("top_n", 15))
     except (TypeError, ValueError):
         top_n = 15
-    # Cap to 15 max, non-negative
     top_n = max(0, min(top_n, 15))
-    # Unified behavior (combine when both are provided):
-    # - If q and user_id: combine query + user profile
-    # - If only q: simple search
-    # - If only user_id: recommendations
     user_id = request.args.get("user_id")
     user_profile_pos = None
     user_profile_neg = None
     rated_names_for_user_id = set()
+    
+    # Construction du profil utilisateur si un ID est fourni pour la personnalisation
     if user_id is not None:
         try:
             uid = int(user_id)
@@ -67,15 +69,16 @@ def api_search():
                 rated_items.append((serie.name, r.score))
                 rated_names_for_user_id.add(serie.name)
             if rated_items:
+                # Création des vecteurs de profil basés sur les notes existantes
                 user_profile_pos, user_profile_neg = search_engine.user_profile_from_ratings(rated_items)
         except (TypeError, ValueError):
             user_profile_pos = None
             user_profile_neg = None
 
     has_profile_signal = any(p is not None for p in (user_profile_pos, user_profile_neg))
-    # If either signal is present, score now and return; client controls inclusion of user_id.
+    
+    # Exécution de la recherche si une requête ou un profil existe
     if query or has_profile_signal:
-        # Weighting: allow override; default to reduce user influence when both are present
         try:
             alpha = float(request.args.get("alpha", 1.0))
         except (TypeError, ValueError):
@@ -90,6 +93,7 @@ def api_search():
         except (TypeError, ValueError):
             gamma = beta
 
+        # Logique pour exclure les séries déjà notées si aucune recherche textuelle n'est faite
         exclude_rated = (not query) and bool(rated_names_for_user_id)
         results = search_engine.search(
             query=query or None,
@@ -102,13 +106,14 @@ def api_search():
             exclude_names=rated_names_for_user_id if exclude_rated else None,
         )
 
+        # Enrichissement des résultats avec les métadonnées (images, synopsis) si demandé
         include_meta = str(request.args.get("include_meta", "0")).lower() in {"1", "true", "yes"}
         if include_meta:
             names = [name for name, _ in results]
             series = Serie.query.filter(Serie.name.in_(names)).all()
             default_poster = url_for('static', filename='image/default_poster.jpg')
             meta = {s.name: {"synopsis": s.synopsis or "Aucune description disponible.",
-                              "image_url": (s.image_url or default_poster)} for s in series}
+                             "image_url": (s.image_url or default_poster)} for s in series}
             enriched = []
             for name, score in results:
                 m = meta.get(name, {"synopsis": "Aucune description disponible.", "image_url": default_poster})
@@ -121,12 +126,13 @@ def api_search():
             return jsonify(enriched)
 
         return jsonify(results)
+    
+    # Fallback sur l'utilisateur connecté si aucun user_id n'est passé en paramètre
     exclude_seen_param = request.args.get("exclude_seen")
     exclude_seen = None
     if exclude_seen_param is not None:
         exclude_seen = str(exclude_seen_param).lower() == "true"
 
-    # Construire un profil utilisateur à partir des notes (si connecté)
     user_profile_pos = None
     user_profile_neg = None
     rated_names = set()
@@ -147,6 +153,7 @@ def api_search():
 
     exclude_names = rated_names if exclude_seen else set()
 
+    # Lancement de la recherche par défaut
     results = search_engine.search(
         query=query or None,
         user_profile_positive=user_profile_pos,
@@ -159,6 +166,7 @@ def api_search():
 @app.route("/api/rate", methods=["POST"])
 @login_required
 def rate_serie():
+    # Route pour ajouter ou modifier une note sur une série
     data = request.get_json()
     serie_name = data.get("serie_name")
     rating = data.get("rating")
@@ -166,10 +174,10 @@ def rate_serie():
     if not serie_name or not rating:
         return jsonify({"success": False, "message": "Données manquantes"})
     
-    # Chercher la série
+    # Recherche de la série dans la base de données
     serie = Serie.query.filter_by(name=serie_name).first()
     
-    # Vérifier si l'utilisateur a déjà noté cette série
+    # Vérification de l'existence d'une note précédente pour cet utilisateur
     existing_rating = Rating.query.filter_by(
         user_id=current_user.id, 
         serie_id=serie.id
@@ -191,6 +199,7 @@ def rate_serie():
 @app.route("/api/unrate", methods=["POST"])
 @login_required
 def unrate_serie():
+    # Route pour supprimer la note d'un utilisateur sur une série
     data = request.get_json() or {}
     serie_name = data.get("serie_name")
     if not serie_name:
@@ -207,6 +216,7 @@ def unrate_serie():
 @app.route("/api/my_ratings")
 @login_required
 def api_my_ratings():
+    # Récupère toutes les notes de l'utilisateur actuellement connecté
     ratings = Rating.query.filter_by(user_id=current_user.id).all()
     out = {}
     for r in ratings:
@@ -217,6 +227,7 @@ def api_my_ratings():
 
 @app.route("/api/series_meta")
 def api_series_meta():
+    # Route utilitaire pour récupérer les métadonnées d'une liste de séries
     names_param = request.args.get("names", "").strip()
     if not names_param:
         return jsonify({})
@@ -229,7 +240,7 @@ def api_series_meta():
         "synopsis": s.synopsis or "Aucune description disponible.",
         "image_url": (s.image_url or default_poster)
     } for s in series}
-    # include placeholders for missing
+    # Ajout de valeurs par défaut pour les séries manquantes
     for n in names:
         if n not in meta:
             meta[n] = {"synopsis": "Aucune description disponible.", "image_url": default_poster}
@@ -238,22 +249,25 @@ def api_series_meta():
 # --- INTERFACE WEB ---
 @app.route("/")
 def index():
-    # La page de recherche est la page d'accueil
+    # Redirection de la page d'accueil vers la page de recherche
     return redirect(url_for("search_page"))
 
 @app.route("/search")
 def search_page():
+    # Affichage de la page principale de recherche
     query = request.args.get("q", "")
     return render_template("search.html", query=query)
 
 @app.route("/recommendations")
 @login_required
 def recommendations_page():
+    # Affichage de la page de recommandations personnalisées
     return render_template("recommendations.html", recommendations=[])
 
 @app.route("/my-ratings")
 @login_required
 def my_ratings_page():
+    # Affichage de la liste des séries notées par l'utilisateur
     user_ratings = Rating.query.filter_by(user_id=current_user.id).all()
     items = []
     for r in user_ratings:
@@ -270,6 +284,7 @@ def my_ratings_page():
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
+    # Gestion de la connexion : affichage du formulaire ou traitement de la soumission
     if request.method == "POST":
         username = request.form.get("username")
         password = request.form.get("password")
@@ -289,13 +304,14 @@ def login():
 
 @app.route("/register", methods=["GET", "POST"])
 def register():
+    # Gestion de l'inscription d'un nouvel utilisateur
     if request.method == "POST":
         username = request.form.get("username")
         email = request.form.get("email")
         password = request.form.get("password")
         confirm_password = request.form.get("confirm_password")
         
-        # Validation
+        # Validation des champs du formulaire
         if password != confirm_password:
             flash("Les mots de passe ne correspondent pas.", "error")
             return render_template("register.html")
@@ -308,7 +324,7 @@ def register():
             flash("Cette adresse email est déjà utilisée.", "error")
             return render_template("register.html")
         
-        # Créer l'utilisateur
+        # Création et sauvegarde de l'utilisateur
         user = User(username=username, email=email)
         user.set_password(password)
         db.session.add(user)
@@ -322,6 +338,7 @@ def register():
 @app.route("/logout")
 @login_required
 def logout():
+    # Déconnexion de l'utilisateur et redirection
     logout_user()
     flash("Vous avez été déconnecté.", "info")
     return redirect(url_for("search_page"))
@@ -329,6 +346,7 @@ def logout():
 @app.route("/admin/users")
 @login_required
 def admin_users():
+    # Page d'administration pour lister les utilisateurs (réservé aux admins)
     if not current_user.is_admin:
         flash("Accès refusé. Droits administrateur requis.", "error")
         return redirect(url_for("search_page"))
@@ -339,6 +357,7 @@ def admin_users():
 @app.route("/admin/promote/<int:user_id>", methods=["POST"])
 @login_required
 def admin_promote_user(user_id):
+    # Action pour promouvoir un utilisateur au statut d'administrateur
     if not current_user.is_admin:
         flash("Accès refusé.", "error")
         return redirect(url_for("search_page"))
@@ -356,6 +375,7 @@ def admin_promote_user(user_id):
 @app.route("/admin/demote/<int:user_id>", methods=["POST"])
 @login_required
 def admin_demote_user(user_id):
+    # Action pour retirer les droits d'administrateur
     if not current_user.is_admin:
         flash("Accès refusé.", "error")
         return redirect(url_for("search_page"))
@@ -373,6 +393,7 @@ def admin_demote_user(user_id):
 @app.route("/admin/delete/<int:user_id>", methods=["POST"])
 @login_required
 def admin_delete_user(user_id):
+    # Action pour supprimer définitivement un compte utilisateur
     if not current_user.is_admin:
         flash("Accès refusé.", "error")
         return redirect(url_for("search_page"))

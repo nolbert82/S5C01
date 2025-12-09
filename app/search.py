@@ -11,59 +11,47 @@ from sklearn.feature_extraction import DictVectorizer
 from sklearn.feature_extraction.text import TfidfTransformer
 from sklearn.preprocessing import normalize
 
-# DB models (for DB-backed loading)
+# Modèles de base de données (pour le chargement via la BDD)
 try:
     from app.models import db, Serie, SeriesTerm  # type: ignore
 except Exception:
-    # Allow importing this module in contexts without app/models readiness
+    # Permet l'importation de ce module dans des contextes où app/models n'est pas prêt
     db = None
     Serie = None
     SeriesTerm = None
 
 class SearchEngine:
-    """
-    TF-IDF based search/recommendation engine.
-
-    - Fits TF-IDF on per-series word-frequency dictionaries.
-    - Supports query search (free text) and user-profile recommendations
-      (weighted combination of rated series vectors).
-    - Can combine both signals when both are provided.
-    """
 
     def __init__(self, series_counts: Dict[str, Dict[str, float]]):
-        # Keep series order stable
+        # Garder l'ordre des séries stable
         self.series_names: List[str] = list(series_counts.keys())
         self._name_to_index: Dict[str, int] = {n: i for i, n in enumerate(self.series_names)}
 
-        # Vectorize counts with a fixed vocabulary using DictVectorizer
+        # Vectoriser les comptes avec un vocabulaire fixe en utilisant DictVectorizer
         self._dv = DictVectorizer()
         counts_list = [series_counts[name] for name in self.series_names]
         if len(counts_list) == 0:
-            # Initialize empty, no features, no rows
-            self._dv.fit([{}])  # create empty vocabulary safely
+            # Initialisation vide, pas de caractéristiques, pas de lignes
+            self._dv.fit([{}])  # créer un vocabulaire vide en toute sécurité
             self._tfidf = TfidfTransformer(norm="l2", use_idf=True, smooth_idf=True)
             self._X = csr_matrix((0, 0))
             return
 
         X_counts = self._dv.fit_transform(counts_list)
 
-        # TF-IDF transform
+        # Transformation TF-IDF
         self._tfidf = TfidfTransformer(norm="l2", use_idf=True, smooth_idf=True)
-        self._X = self._tfidf.fit_transform(X_counts)  # shape: (n_series, n_features)
+        self._X = self._tfidf.fit_transform(X_counts)  # forme : (n_series, n_features)
 
-        # Pre-normalized rows (l2) from TfidfTransformer, but keep a safety normalize
+        # Lignes pré-normalisées (l2) issues de TfidfTransformer, mais garder une normalisation de sécurité
         self._X = normalize(self._X, norm="l2", copy=False)
 
-    # ----------------------
-    # Building helpers
-    # ----------------------
+    # Aides à la construction
     @staticmethod
     def load_series_counts_from_dir(dir_path: str) -> Dict[str, Dict[str, float]]:
-        """
-        Load per-series word counts from `data_word_frequency`-style directory.
-        Expects files named `<series>.txt` with lines `word:count`.
-        Series names come from file stems.
-        """
+        # Charge les comptes de mots par série depuis un répertoire de style data_word_frequency.
+        # Attend des fichiers nommés <serie>.txt avec des lignes mot:compte.
+        # Les noms de séries proviennent des noms de fichiers (sans extension).
         series_counts: Dict[str, Dict[str, float]] = {}
         if not os.path.isdir(dir_path):
             return series_counts
@@ -91,19 +79,17 @@ class SearchEngine:
                 if counts:
                     series_counts[series_name] = counts
             except OSError:
-                # Skip unreadable files
+                # Ignorer les fichiers illisibles
                 continue
 
         return series_counts
 
     @staticmethod
     def load_series_counts_from_db() -> Dict[str, Dict[str, float]]:
-        """
-        Load per-series word counts from the database (tables: Serie, SeriesTerm).
-        Returns a mapping: { series_name: { term: count } }.
-        """
+        # Charge les comptes de mots par série depuis la base de données (tables : Serie, SeriesTerm).
+        # Retourne un mapping : { nom_serie: { terme: compte } }.
         series_counts: Dict[str, Dict[str, float]] = {}
-        # Ensure DB models are available
+        # S'assurer que les modèles de BDD sont disponibles
         if db is None or Serie is None or SeriesTerm is None:
             return series_counts
 
@@ -128,25 +114,23 @@ class SearchEngine:
                 d = series_counts.setdefault(str(s_name), {})
                 d[term_norm] = d.get(term_norm, 0.0) + c
         except Exception:
-            # In case tables do not exist yet or DB not ready
+            # Au cas où les tables n'existent pas encore ou si la BDD n'est pas prête
             return {}
 
         return series_counts
 
-    # ----------------------
-    # Vectorization helpers
-    # ----------------------
-    # Match Unicode words (letters only), allowing internal apostrophes.
-    # Examples matched: "été", "l'été", "naïve", "coöperate"
+    # Aides à la vectorisation
+    # Correspond aux mots Unicode (lettres uniquement), autorisant les apostrophes internes.
+    # Exemples correspondants : "été", "l'été", "naïve", "coöperate"
     _token_re = re.compile(r"[^\W\d_]+(?:'[^\W\d_]+)*")
 
     @staticmethod
     def _normalize_text(text: str) -> str:
-        """Normalize to NFC and lowercase for consistent matching."""
+        # Normaliser en NFC et en minuscules pour une correspondance cohérente.
         return unicodedata.normalize("NFC", text).lower()
 
     def _query_to_counts(self, query: str) -> Dict[str, float]:
-        # Normalize query to handle composed/combined accents uniformly
+        # Normaliser la requête pour gérer les accents composés/combinés uniformément
         query = unicodedata.normalize("NFC", query)
         tokens = [self._normalize_text(t) for t in self._token_re.findall(query)]
         counts: Dict[str, float] = {}
@@ -155,7 +139,7 @@ class SearchEngine:
         return counts
 
     def vectorize_query(self, query: str) -> csr_matrix:
-        # If no features, return empty vector
+        # S'il n'y a pas de caractéristiques, retourner un vecteur vide
         if self._X.shape[1] == 0:
             return csr_matrix((1, 0))
         counts = self._query_to_counts(query)
@@ -168,10 +152,8 @@ class SearchEngine:
     def user_profile_from_ratings(
         self, rated_items: Sequence[Tuple[str, float]]
     ) -> Tuple[Optional[csr_matrix], Optional[csr_matrix]]:
-        """
-        Build separate profile vectors for liked and disliked series.
-        Returns a tuple: (positive_profile, negative_profile).
-        """
+        # Construire des profils séparés pour les séries aimées et détestées.
+        # Retourne un tuple : (profil_positif, profil_negatif).
 
         def _aggregate(rows: List[csr_matrix], weights: List[float]) -> Optional[csr_matrix]:
             if not rows:
@@ -197,7 +179,7 @@ class SearchEngine:
             except (TypeError, ValueError):
                 continue
             if iv == 3:
-                continue  # neutral rating, no impact
+                continue  # note neutre, aucun impact
             magnitude = {1: 2.0, 2: 1.0, 4: 1.0, 5: 2.0}.get(iv)
             if magnitude is None:
                 continue
@@ -210,9 +192,7 @@ class SearchEngine:
 
         return _aggregate(pos_rows, pos_weights), _aggregate(neg_rows, neg_weights)
 
-    # ----------------------
-    # Search / Recommend
-    # ----------------------
+    # Recherche / Recommandation
     def search(
         self,
         query: Optional[str] = None,
@@ -224,16 +204,8 @@ class SearchEngine:
         beta: float = 1.0,
         gamma: float = 1.0,
     ) -> List[Tuple[str, float]]:
-        """
-        Compute relevance scores for all series and return top results.
-        - If only `query` is provided: query-based search.
-        - If only `user_profile_positive` is provided: recommend from liked items.
-        - If only `user_profile_negative` is provided: push away from disliked items.
-        - If several signals are provided: combine with weights alpha/beta/gamma.
-        - Can exclude a set of series names from results (e.g., already rated).
-        Returns: list of (series_name, score) sorted by score desc.
-        """
-        # If the index is empty (no series or no vocabulary), nothing to return
+
+        # Si l'index est vide (pas de séries ou pas de vocabulaire), rien à retourner
         if self._X.shape[0] == 0 or self._X.shape[1] == 0:
             return []
 
@@ -253,10 +225,10 @@ class SearchEngine:
             sims -= gamma * (user_profile_negative @ self._X.T).toarray().ravel()
 
         if not np.any(sims):
-            # If all signals missing, nothing to rank
+            # Si tous les signaux sont manquants, rien à classer
             return []
 
-        # Normalize scores into [0, 1] to avoid negative percentages downstream
+        # Normaliser les scores entre [0, 1] pour éviter les pourcentages négatifs en aval
         min_val = sims.min()
         max_val = sims.max()
         if max_val != min_val:

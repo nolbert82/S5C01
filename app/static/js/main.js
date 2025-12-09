@@ -11,7 +11,7 @@ function showFlashMessage(message, type = 'info') {
     
     flashContainer.appendChild(flashDiv);
     
-    // Auto-suppression après 5 secondes
+    // Suppression automatique après 5 secondes
     setTimeout(() => {
         flashDiv.remove();
     }, 5000);
@@ -30,7 +30,7 @@ function setupSearch() {
     searchInput.addEventListener('input', function() {
         const query = this.value.trim();
         
-        // Clear previous timeout
+        // Effacer le timeout précédent
         clearTimeout(searchTimeout);
         
         if (query.length < 2) {
@@ -38,12 +38,12 @@ function setupSearch() {
             return;
         }
         
-        // Show loading spinner
+        // Afficher l'indicateur de chargement
         if (loadingSpinner) {
             loadingSpinner.style.display = 'block';
         }
         
-        // Debounce search
+        // Temporisation de la recherche
         searchTimeout = setTimeout(() => {
             performSearch(query);
         }, 300);
@@ -55,7 +55,7 @@ function performSearch(query) {
     const searchResults = document.getElementById('search-results');
     const loadingSpinner = document.getElementById('loading-spinner');
     
-    // Use API endpoint that returns JSON search results
+    // Utiliser l'endpoint API qui retourne les résultats de recherche JSON
     fetch(`/api/search?q=${encodeURIComponent(query)}`)
         .then(response => response.json())
         .then(data => {
@@ -143,7 +143,7 @@ function displayRecommendations(recommendations) {
     `).join();
     
     recommendationsContainer.innerHTML = recommendationsHTML;
-    // Attach rating handlers
+    // Attacher les gestionnaires de notation
     const items = recommendationsContainer.querySelectorAll('.star-rating-inline');
     items.forEach(item => {
         const serie = item.getAttribute('data-serie');
@@ -163,21 +163,21 @@ function displayRecommendations(recommendations) {
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ serie_name: serie, rating })
                 }).then(r=>r.json()).then(()=>{
-                    showFlashMessage('Note enregistr�e', 'success');
+                    showFlashMessage('Note enregistre', 'success');
                 }).catch(()=> showFlashMessage('Erreur lors de la notation', 'error'));
             });
         });
         const removeBtn = item.querySelector('.remove-rating');
         if (removeBtn) {
             removeBtn.addEventListener('click', ()=>{
-                // Fallback: send rating 0 to clear
+                // Solution de repli : envoyer la note 0 pour effacer
                 fetch('/api/rate', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ serie_name: serie, rating: 0 })
                 }).then(r=>r.json()).then(()=>{
                     item.querySelectorAll('.star').forEach(s => s.style.color = 'var(--text-muted)');
-                    showFlashMessage('Note supprim�e', 'success');
+                    showFlashMessage('Note supprime', 'success');
                 }).catch(()=> showFlashMessage('Erreur lors de la suppression de la note', 'error'));
             });
         }
@@ -243,7 +243,7 @@ document.addEventListener('DOMContentLoaded', function() {
     setupSearch();
     setupStarRating();
     
-    // Auto-hide flash messages
+    // Masquer automatiquement les messages flash
     const flashMessages = document.querySelectorAll('.flash-message');
     flashMessages.forEach(message => {
         setTimeout(() => {
@@ -326,7 +326,7 @@ function validateForm(form) {
         }
     });
     
-    // Validation email
+    // Validation de l'email
     const emailFields = form.querySelectorAll('input[type="email"]');
     emailFields.forEach(field => {
         if (field.value && !isValidEmail(field.value)) {
@@ -365,9 +365,9 @@ function isValidEmail(email) {
     return emailRegex.test(email);
 }
 
-// === Enhancements: ratings + recommendations ===
+// Améliorations : notes + recommandations
 (function(){
-  // Cache for user ratings
+  // Cache pour les notes de l'utilisateur
   let ratingsLoaded = false;
   window.MY_RATINGS = window.MY_RATINGS || null;
 
@@ -397,24 +397,24 @@ function isValidEmail(email) {
     const setStars = (selected) => {
       stars.forEach((el, idx)=> {
         const n = idx + 1;
-        // Fill all stars up to selected
+        // Remplir toutes les étoiles jusqu'à la sélection
         el.className = (n <= selected ? 'fas' : 'far') + ' fa-star star';
-        // Rely on CSS for colors; clear any inline color
+        // S'appuyer sur le CSS pour les couleurs ; effacer toute couleur en ligne
         el.style.color = '';
       });
     };
     for (let i=1;i<=5;i++){
       const star = document.createElement('i');
-      // Filled if index is <= current score
+      // Rempli si l'index est inférieur ou égal au score actuel
       star.className = (i <= score ? 'fas' : 'far') + ' fa-star star';
       star.style.cursor = 'pointer';
       star.style.marginRight = '4px';
-      // Use CSS-driven colors
+      // Utiliser des couleurs définies par CSS
       star.style.color = '';
       star.addEventListener('mouseenter', ()=> {
         stars.forEach((sEl, j)=>{
           const n = j + 1;
-          // Highlight cumulatively up to hovered star
+          // Mettre en surbrillance cumulativement jusqu'à l'étoile survolée
           sEl.className = (n <= i ? 'fas' : 'far') + ' fa-star star';
           sEl.style.color = '';
         });
@@ -459,7 +459,7 @@ function isValidEmail(email) {
     if (!container) return;
     const items = container.querySelectorAll('.result-item');
     items.forEach(item => {
-      if (item.querySelector('.star-rating-inline')) return; // already attached
+      if (item.querySelector('.star-rating-inline')) return; // déjà attaché
       const titleEl = item.querySelector('.result-title');
       if (!titleEl) return;
       const name = titleEl.textContent.trim();
@@ -501,7 +501,7 @@ function isValidEmail(email) {
     if (recoCont) observer.observe(recoCont, { childList: true });
   }
 
-  // Override loadRecommendations to use user_id
+  // Surcharger loadRecommendations pour utiliser user_id
   window.loadRecommendations = async function(){
     const recommendationsContainer = document.getElementById('recommendations');
     const loadingSpinner = document.getElementById('recommendations-loading');
@@ -514,7 +514,7 @@ function isValidEmail(email) {
     try {
       const resp = await fetch(`/api/search?user_id=${encodeURIComponent(String(window.CURRENT_USER_ID))}`);
       const data = await resp.json();
-      // Reuse existing display if present, else simple render
+      // Réutiliser l'affichage existant si présent, sinon rendu simple
       if (typeof window.displayRecommendations === 'function') {
         window.displayRecommendations(data);
       } else if (recommendationsContainer) {
@@ -531,7 +531,7 @@ function isValidEmail(email) {
   document.addEventListener('DOMContentLoaded', initRatingsAndObservers);
 })();
 
-// Fetch metadata (image, synopsis) and inject into result cards
+// Récupérer les métadonnées (image, synopsis) et les injecter dans les cartes de résultat
 async function enhanceResultsWithMeta(containerId = 'search-results') {
   const container = document.getElementById(containerId);
   if (!container) return;
@@ -575,5 +575,5 @@ async function enhanceResultsWithMeta(containerId = 'search-results') {
         item.appendChild(p);
       }
     });
-  } catch (e) { /* ignore */ }
+  } catch (e) { /* Ignorer */ }
 }
