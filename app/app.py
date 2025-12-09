@@ -258,6 +258,13 @@ def search_page():
     query = request.args.get("q", "")
     return render_template("search.html", query=query)
 
+@app.route("/catalogue")
+def catalogue_page():
+    # Affichage du catalogue complet des series
+    series = Serie.query.order_by(Serie.name.asc()).all()
+    default_poster = url_for('static', filename='image/default_poster.jpg')
+    return render_template("catalogue.html", series=series, default_poster=default_poster)
+
 @app.route("/recommendations")
 @login_required
 def recommendations_page():

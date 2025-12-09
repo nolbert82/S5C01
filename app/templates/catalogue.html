@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Catalogue{% endblock %}
+
+{% block content %}
+<section class="card">
+    <div class="card-header">
+        <h1 class="card-title">Catalogue complet</h1>
+        <p class="text-secondary">Explorez toutes les sries disponibles, classes par ordre alphabtique.</p>
+    </div>
+    {% if series %}
+        <div class="catalog-grid">
+            {% for serie in series %}
+                <article class="catalog-item fade-in">
+                    <div class="catalog-media">
+                        <img
+                            src="{{ serie.image_url or default_poster }}"
+                            alt="Affiche de {{ serie.name }}"
+                            loading="lazy"
+                        >
+                    </div>
+                    <h2 class="catalog-name">{{ serie.name }}</h2>
+                </article>
+            {% endfor %}
+        </div>
+    {% else %}
+        <p class="text-secondary">Aucune srie n'est disponible pour le moment.</p>
+    {% endif %}
+</section>
+{% endblock %}
