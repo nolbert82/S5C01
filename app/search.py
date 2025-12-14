@@ -46,43 +46,6 @@ class SearchEngine:
         # Lignes pré-normalisées (l2) issues de TfidfTransformer, mais garder une normalisation de sécurité
         self._X = normalize(self._X, norm="l2", copy=False)
 
-    # Aides à la construction
-    @staticmethod
-    def load_series_counts_from_dir(dir_path: str) -> Dict[str, Dict[str, float]]:
-        # Charge les comptes de mots par série depuis un répertoire de style data_word_frequency.
-        # Attend des fichiers nommés <serie>.txt avec des lignes mot:compte.
-        # Les noms de séries proviennent des noms de fichiers (sans extension).
-        series_counts: Dict[str, Dict[str, float]] = {}
-        if not os.path.isdir(dir_path):
-            return series_counts
-
-        for filename in sorted(os.listdir(dir_path)):
-            if not filename.lower().endswith(".txt"):
-                continue
-            series_name = os.path.splitext(filename)[0]
-            file_path = os.path.join(dir_path, filename)
-            counts: Dict[str, float] = {}
-            try:
-                with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
-                    for line in f:
-                        line = line.strip()
-                        if not line or ":" not in line:
-                            continue
-                        term, count_str = line.split(":", 1)
-                        term = SearchEngine._normalize_text(term.strip())
-                        try:
-                            count = float(count_str.strip())
-                        except ValueError:
-                            continue
-                        if count > 0:
-                            counts[term] = counts.get(term, 0.0) + count
-                if counts:
-                    series_counts[series_name] = counts
-            except OSError:
-                # Ignorer les fichiers illisibles
-                continue
-
-        return series_counts
 
     @staticmethod
     def load_series_counts_from_db() -> Dict[str, Dict[str, float]]:
